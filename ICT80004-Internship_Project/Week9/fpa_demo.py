@@ -34,7 +34,14 @@ def main():
     for ch in ["a", "e", "i", "o", "u", "x"]:
         res_correct = program_with_guard(ch, use_deception=False)
         res_decept  = program_with_guard(ch, use_deception=True)
-        print(f"char={ch!r}  correct={res_correct:>20}  deceptive={res_decept:>20}")
+        
+        print(f"char={ch!r}  correct={res_correct:>20} deceptive={res_decept:>20}")
 
 if __name__ == "__main__":
     main()
+
+
+
+'''res_decept  = program_with_guard(ch, use_deception=True)
+
+deceptive={res_decept:>20}'''
