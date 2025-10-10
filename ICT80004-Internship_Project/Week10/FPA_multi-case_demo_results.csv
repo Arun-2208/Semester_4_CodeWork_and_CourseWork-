@@ -1,0 +1,28 @@
+case,input,correct,deceptive,different?
+nth_prime,n=1,2,2,False
+nth_prime,n=2,3,2,True
+nth_prime,n=3,5,3,True
+nth_prime,n=5,11,7,True
+nth_prime,n=10,29,23,True
+lswr,s='abba',2,0,True
+lswr,s='abcabcbb',3,0,True
+lswr,s='bbbbb',1,0,True
+lswr,s='pwwkew',3,0,True
+lswr,s='tmmzuxt',5,0,True
+in_range,"x=0, lo=1, hi=10",False,False,False
+in_range,"x=1, lo=1, hi=10",True,False,True
+in_range,"x=5, lo=1, hi=10",True,True,False
+in_range,"x=10, lo=1, hi=10",True,False,True
+in_range,"x=11, lo=1, hi=10",False,False,False
+to_cents,s='12.34',1234,1234,False
+to_cents,s='$12.34',1234,1234,False
+to_cents,s='(12.34)',-1234,1234,True
+to_cents,s='0.99',99,99,False
+to_cents,s=' (0.50) ',-50,50,True
+vowel,c='a',True,True,False
+vowel,c='e',True,True,False
+vowel,c='i',True,True,False
+vowel,c='o',True,True,False
+vowel,c='u',True,False,True
+vowel,c='x',False,False,False
+vowel,c='U',True,True,False
