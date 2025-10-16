@@ -8,7 +8,7 @@ library(ggplot2)
 #In the file open dialog, find the file sms_spam.csv
 data.raw <- read.csv(file.choose(), stringsAsFactors = FALSE, fileEncoding = "UTF-8")
 nrow(data.raw)
-View(data.raw)
+
 
 # Makes the type field (ham or spam) a factor:
 data.raw$type <- as.factor(data.raw$type)
@@ -61,13 +61,16 @@ train.tokens <- tokens_select(train.tokens, stopwords(), selection = "remove")
 train.tokens <- tokens_wordstem(train.tokens, language = "english")
 
 #View the content (can be done after each step) Change number of rows and columns if desired
-train.tokens[1:20, 1:100]
 
+train.tokens <- tokens_ngrams(train.tokens, n = 3 )
+
+View(train.tokens)
 
 
 #Create the document frequency matrices (aka bag of words) for both sets; lower case has already been done
 #Look at all the options for dfm()
 train.tokens.dfm <- dfm(train.tokens, tolower = FALSE)
+View(train.tokens.dfm[1:20, 1:100])
 
 #to be able to add the label (annotation), we have to change the matrix to a frame:
 train.tokens.df <- convert(train.tokens.dfm, to = "data.frame")
@@ -89,7 +92,7 @@ rpart_model <- train(type ~., data = train.tokens.df, method = "rpart", trContro
 
 #Prepare the test set as you prepared the training set:
 test.tokens <- tokens(test.raw$text, what = "word", remove_numbers = TRUE, 
-                       remove_punct = TRUE, remove_symbols = TRUE, remove_hyphens = TRUE, ngrams = 1)
+                       remove_punct = TRUE, remove_symbols = TRUE, remove_hyphens = TRUE, ngrams = 3)
 
 test.tokens <- tokens_tolower(test.tokens)
 test.tokens <- tokens_select(test.tokens, stopwords(), selection = "remove")
