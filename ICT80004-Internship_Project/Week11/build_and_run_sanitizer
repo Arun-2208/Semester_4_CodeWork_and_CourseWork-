@@ -1,0 +1,149 @@
+# Orchestrated build & run of the uploaded CWE-121 samples with sanitizers.
+# This will:
+# 1) Compile each .c file with -fsanitize=address,undefined and warnings.
+# 2) Attempt to run programs that accept stdin (fgets/fscanf/large/memcpy variants).
+#    - Socket variants will be compiled but not executed (they require a server).
+# 3) Capture stdout/stderr (including sanitizer logs) to files.
+# 4) Produce a summary table of build/run results and where to find logs/binaries.
+
+import os, subprocess, shlex, textwrap, json, sys, pathlib, time
+from pathlib import Path
+import pandas as pd
+from caas_jupyter_tools import display_dataframe_to_user
+
+BASE = Path("/mnt/data")
+SRC_FILES = [
+    "CWE121_Stack_Based_Buffer_Overflow__char_type_overrun_memcpy_bad.c",
+    "CWE121_Stack_Based_Buffer_Overflow__char_type_overrun_memcpy_good.c",
+    "CWE121_Stack_Based_Buffer_Overflow__CWE129_connect_socket_bad.c",
+    "CWE121_Stack_Based_Buffer_Overflow__CWE129_connect_socket_good.c",
+    "CWE121_Stack_Based_Buffer_Overflow__CWE129_fgets_bad.c",
+    "CWE121_Stack_Based_Buffer_Overflow__CWE129_fgets_good.c",
+    "CWE121_Stack_Based_Buffer_Overflow__CWE129_fscanf_bad.c",
+    # Note: The user uploaded a file named 'fscanf_bood.c' (likely a typo). Handle both.
+    "CWE121_Stack_Based_Buffer_Overflow__CWE129_fscanf_bood.c",
+    "CWE121_Stack_Based_Buffer_Overflow__CWE129_large_bad.c",
+    "CWE121_Stack_Based_Buffer_Overflow__CWE129_large_good.c",
+]
+
+# Resolve existing files only
+existing = [str(BASE / f) for f in SRC_FILES if (BASE / f).exists()]
+missing = [f for f in SRC_FILES if not (BASE / f).exists()]
+
+BIN_DIR = BASE / "bin"
+LOG_DIR = BASE / "logs"
+BIN_DIR.mkdir(exist_ok=True, parents=True)
+LOG_DIR.mkdir(exist_ok=True, parents=True)
+
+CC = os.environ.get("CC", "gcc")
+CFLAGS = "-O0 -g -Wall -Wextra -Wshadow -Wconversion -fsanitize=address,undefined -fno-omit-frame-pointer"
+LDFLAGS = ""
+
+def run_cmd(cmd, cwd=None, input_data=None, timeout=10):
+    """Run a shell command, capture stdout/stderr and return (code, out, err)."""
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=cwd,
+            input=(input_data.encode() if isinstance(input_data, str) else input_data),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            check=False
+        )
+        return proc.returncode, proc.stdout.decode(errors="replace"), proc.stderr.decode(errors="replace")
+    except FileNotFoundError as e:
+        return 127, "", f"{e}"
+    except subprocess.TimeoutExpired as e:
+        out = e.stdout.decode(errors="replace") if e.stdout else ""
+        err = e.stderr.decode(errors="replace") if e.stderr else ""
+        return 124, out, (err + "\n<timeout>").strip()
+
+def compile_file(src_path: Path):
+    exe_name = src_path.stem
+    out_path = BIN_DIR / exe_name
+    cmd = [CC, *shlex.split(CFLAGS), str(src_path), "-o", str(out_path)]
+    code, out, err = run_cmd(cmd)
+    # Write build logs
+    (LOG_DIR / f"{exe_name}.build.out.txt").write_text(out)
+    (LOG_DIR / f"{exe_name}.build.err.txt").write_text(err)
+    return out_path if code == 0 else None, code, out, err
+
+# Decide which executables we can safely run (stdin-driven or safe).
+def planned_runs(exe: Path):
+    name = exe.name
+    # Socket variants require a listening server; skip run.
+    if "connect_socket" in name:
+        return []
+    tests = []
+    # fgets/fscanf read a single integer from stdin; test multiple.
+    if "fgets" in name or "fscanf" in name:
+        for val in ["-1\n", "0\n", "9\n", "10\n", "100\n"]:
+            tests.append({"stdin": val, "label": f"stdin:{val.strip()}"})
+    # large_* has internal values; no stdin needed.
+    elif "large_" in name:
+        tests.append({"stdin": None, "label": "no-input"})
+    # memcpy samples do not need input.
+    elif "char_type_overrun_memcpy" in name:
+        tests.append({"stdin": None, "label": "no-input"})
+    else:
+        # Default: try no input.
+        tests.append({"stdin": None, "label": "no-input"})
+    return tests
+
+build_rows = []
+run_rows = []
+
+# Compile step
+for src in existing:
+    sp = Path(src)
+    exe, code, bout, berr = compile_file(sp)
+    build_rows.append({
+        "source": sp.name,
+        "executable": str(exe) if exe else "",
+        "build_status": "ok" if code == 0 else f"fail({code})",
+        "build_log_stdout": str(LOG_DIR / f"{sp.stem}.build.out.txt"),
+        "build_log_stderr": str(LOG_DIR / f"{sp.stem}.build.err.txt"),
+    })
+
+# Run step
+for row in build_rows:
+    if row["build_status"] != "ok":
+        continue
+    exe = Path(row["executable"])
+    for test in planned_runs(exe):
+        label = test["label"]
+        stdin = test["stdin"]
+        code, out, err = run_cmd([str(exe)], cwd=BIN_DIR, input_data=stdin, timeout=10)
+        # Save logs
+        safe_label = label.replace(":", "_")
+        out_file = LOG_DIR / f"{exe.name}.{safe_label}.run.out.txt"
+        err_file = LOG_DIR / f"{exe.name}.{safe_label}.run.err.txt"
+        out_file.write_text(out)
+        err_file.write_text(err)
+        run_rows.append({
+            "executable": exe.name,
+            "test": label,
+            "exit_code": code,
+            "stdout_log": str(out_file),
+            "stderr_log": str(err_file),
+        })
+
+# Prepare summary dataframes
+build_df = pd.DataFrame(build_rows + ([{"source": m, "executable":"", "build_status":"missing", "build_log_stdout":"", "build_log_stderr":""} for m in missing]))
+run_df = pd.DataFrame(run_rows)
+
+# Show to user
+display_dataframe_to_user("CWE-121 Build Summary", build_df)
+display_dataframe_to_user("CWE-121 Run Summary", run_df)
+
+# Also write CSVs for download
+build_csv = BASE / "build_summary.csv"
+run_csv = BASE / "run_summary.csv"
+build_df.to_csv(build_csv, index=False)
+run_df.to_csv(run_csv, index=False)
+
+print("Build summary saved to:", build_csv)
+print("Run summary saved to:", run_csv)
+print("Binaries:", BIN_DIR)
+print("Logs:", LOG_DIR)

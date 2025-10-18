@@ -1,0 +1,5 @@
+pattern,perturbation,P_runtime_val,Pprime_runtime_val,runtime_flag,llm_pred_flag,llm_ok,success,note
+vowel,drop_u,TRUE,FALSE,,TARGET_BRANCH_EXECUTED,TRUE,TRUE,mock_flag_assumed_true
+nth_prime,off_by_one,11,7,,TARGET_BRANCH_EXECUTED,TRUE,TRUE,mock_flag_assumed_true
+lswr,comparator_flip,2,1,,TARGET_BRANCH_EXECUTED,TRUE,TRUE,mock_flag_assumed_true
+in_range,exclusive_range,TRUE,FALSE,,TARGET_BRANCH_EXECUTED,TRUE,TRUE,mock_flag_assumed_true

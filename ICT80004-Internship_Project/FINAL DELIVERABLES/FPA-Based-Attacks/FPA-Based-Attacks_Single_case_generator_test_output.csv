@@ -1,0 +1,3 @@
+pattern,perturbation,P_runtime_val,Pprime_runtime_val,runtime_flag,llm_pred_flag,llm_ok,success,note
+vowel_check,drop_u,TRUE,FALSE,,TARGET_BRANCH_EXECUTED,TRUE,TRUE,mock_flag_assumed_true
+count_first_n,off_by_one,3,4,,TARGET_BRANCH_EXECUTED,TRUE,TRUE,mock_flag_assumed_true
