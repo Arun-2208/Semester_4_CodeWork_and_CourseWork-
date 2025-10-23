@@ -1,6 +1,6 @@
 
 library(caret)
-
+library(dplyr)
 set.seed(32984)
 
 iris.data <- read.csv(file.choose(), stringsAsFactors = FALSE)
@@ -70,3 +70,11 @@ ggplot(test, aes(x = petal_width, y = petal_length, color = species)) +
 ggplot(cmp2, aes(x = petal_width, y = petal_length, color = km_cluster)) +
   geom_point(size = 2) + theme_minimal() +
   labs(title = "plot for Kmeans(clusters)", x = "Petal width", y = "Petal length")
+
+ggplot(test, aes(sepal_length, petal_length, color = species)) +
+  geom_point(size = 2) + theme_minimal() +
+  labs(title = "Sepal length vs Petal length", x = "Sepal length", y = "Petal length")
+
+ggplot(cmp2, aes(sepal_length, petal_length, color = km_cluster)) +
+  geom_point(size = 2) + theme_minimal() +
+  labs(title = "Sepal length vs Petal length", x = "Sepal length", y = "Petal length")
