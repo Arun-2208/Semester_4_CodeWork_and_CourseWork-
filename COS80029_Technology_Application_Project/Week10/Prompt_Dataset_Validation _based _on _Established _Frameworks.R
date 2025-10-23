@@ -1,18 +1,28 @@
 # validate_prompts_views.R
 # ------------------------------------------------------------------
-# One-file validator for prompt datasets.
-# - File picker on source(); reads .xlsx/.xls (first sheet) or .csv
-# - Validations open with View(); writes nothing to disk
-# - Technique-based counts, missingness, near-dups, split leakage
-# - Agreement (Direct vs Paraphrased) per model + inter-model agreement on PARAPHRASED
-# - Console output is spaced for readability
-# - Only the specific View() tables you requested are shown
+# Prompt dataset validator with clear, colourful plots (cleaned scope).
+#
+# What it shows (only):
+#  1) Technique balance (combined techniques -> "Other (Combined)") [BAR]
+#  2) Missingness by column (strict: NA/blank/whitespace) [BAR]
+#     + missing PROMPT rows with row indexes [TABLE]
+#  3) Length distribution for representative prompt + outlier cutoff [HIST + Normal curve + shaded outlier region]
+#     + outlier rows [TABLE]
+#  4) Direct vs Paraphrased agreement per model (Grok/GPT-5/Gemini) [BAR]
+#     + each model's summary & confusion tables [TABLES]
+#     + inter-model agreement on PARAPHRASED results [BAR]
+#  5) Rows involved in duplicates by technique (exact OR near-dup) [BAR + TABLE]
+#  6) Schema validation [TABLE]
+#  7) Split-leakage status printed to console
+#
+# NEW: Every plot is also saved to PNG in a timestamped folder.
 # ------------------------------------------------------------------
 
 # ---- Package setup ----
 required_pkgs <- c(
-  "readxl","dplyr","stringr","text2vec","Matrix","readr","tools",
-  "irr","tibble"
+  "readxl","readr","tools","dplyr","stringr",
+  "tibble","tidyr","text2vec","Matrix","irr",
+  "ggplot2","scales"
 )
 to_install <- setdiff(required_pkgs, rownames(installed.packages()))
 if (length(to_install) > 0) {
@@ -21,18 +31,13 @@ if (length(to_install) > 0) {
 }
 
 suppressPackageStartupMessages({
-  library(readxl)
-  library(dplyr)
-  library(stringr)
-  library(text2vec)
-  library(Matrix)
-  library(readr)
-  library(tools)
-  library(irr)
-  library(tibble)
+  library(readxl); library(readr); library(tools)
+  library(dplyr);  library(stringr); library(tibble); library(tidyr)
+  library(text2vec); library(Matrix); library(irr)
+  library(ggplot2); library(scales)
 })
 
-# ---- Helpers ----
+# ---- Small helpers ----
 is_text_series <- function(x) {
   if (!is.character(x)) return(FALSE)
   non_null <- x[!is.na(x)]
@@ -67,10 +72,9 @@ compute_agreement <- function(a, b) {
   a <- a[keep]; b <- b[keep]
   if (length(a) < 2) return(list(summary=NULL, confusion=NULL))
   labs <- sort(unique(c(a, b)))
-  ta <- factor(a, levels = labs)
-  tb <- factor(b, levels = labs)
+  ta <- factor(a, levels = labs); tb <- factor(b, levels = labs)
   tab <- as.data.frame.matrix(table(ta, tb))
-  agree <- sum(diag(as.matrix(tab))) / sum(as.matrix(tab))
+  agree <- sum(diag(as.matrix(tab)))/sum(as.matrix(tab))
   k <- tryCatch({ irr::kappa2(cbind(as.character(ta), as.character(tb)), weight = "unweighted") }, error = function(e) NULL)
   out <- data.frame(
     metric = c("n_pairs","percent_agreement","cohens_kappa","kappa_se","kappa_p_value"),
@@ -89,9 +93,9 @@ guess_result_columns <- function(df) {
   res_pat <- "(label|result|decision|outcome|class|verdict|judg(e)?ment|response|policy)"
   dir_pat <- "(^|[_\\-\\s])(direct|orig(inal)?)([_\\-\\s]|$)"
   par_pat <- "(^|[_\\-\\s])(para(phrase|phrased)?|paraphrased|rephrase(d)?)([_\\-\\s]|$)"
-  res_cols <- cols[stringr::str_detect(tolower(cols), res_pat)]
-  dir_cols <- res_cols[stringr::str_detect(tolower(res_cols), dir_pat)]
-  par_cols <- res_cols[stringr::str_detect(tolower(res_cols), par_pat)]
+  res_cols <- cols[str_detect(tolower(cols), res_pat)]
+  dir_cols <- res_cols[str_detect(tolower(res_cols), dir_pat)]
+  par_cols <- res_cols[str_detect(tolower(res_cols), par_pat)]
   if (length(dir_cols) == 0 || length(par_cols) == 0) {
     if (length(res_cols) >= 2) {
       if (length(dir_cols) == 0) dir_cols <- res_cols[1]
@@ -101,14 +105,33 @@ guess_result_columns <- function(df) {
   list(direct = unique(dir_cols)[1], paraphrase = unique(par_cols)[1])
 }
 
+# Collapse combined techniques (comma, slash, ampersand, or ' and ')
+collapse_technique <- function(x) {
+  ifelse(str_detect(tolower(x), ",|/|\\&|\\band\\b"),
+         "Other (Combined)", x)
+}
+
 # ---- Main validator ----
 validate_prompts_view <- function(df,
                                   rep_text_col = NULL,
                                   near_dup_threshold = 0.90,
-                                  split_leak_threshold = 0.92) {
-  # Identify prompt-like columns
+                                  split_leak_threshold = 0.92,
+                                  output_dir = "validation_plots") {
+  
+  # Ensure output directory exists
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  # Helper to save a plot (PNG 10x6, 150 dpi) with numbered filename
+  save_plot <- function(plot_obj, fname_prefix, idx) {
+    if (inherits(plot_obj, "ggplot")) {
+      fn <- file.path(output_dir, sprintf("%02d_%s.png", idx, fname_prefix))
+      ggplot2::ggsave(filename = fn, plot = plot_obj, width = 10, height = 6, dpi = 150)
+    }
+  }
+  
+  # Identify prompt-like columns & representative text col
   text_cols <- names(df)[vapply(df, is_text_series, logical(1))]
-  priority_cols <- names(df)[stringr::str_detect(names(df), regex("prompt|text|instruction|input", ignore_case = TRUE))]
+  priority_cols <- names(df)[str_detect(names(df), regex("prompt|text|instruction|input", ignore_case = TRUE))]
   prompt_like_cols <- intersect(priority_cols, text_cols)
   if (length(prompt_like_cols) == 0) prompt_like_cols <- head(text_cols, 2)
   if (is.null(rep_text_col)) {
@@ -116,7 +139,7 @@ validate_prompts_view <- function(df,
     else stop("No text-like columns found. Please ensure at least one prompt/text column is character type.")
   }
   
-  # Schema & Missingness (NA-only)
+  # ---------------- Schema & Missingness ----------------
   schema <- data.frame(
     column   = names(df),
     dtype    = vapply(df, function(x) class(x)[1], character(1)),
@@ -125,144 +148,102 @@ validate_prompts_view <- function(df,
     stringsAsFactors = FALSE
   )
   schema$null_pct <- round(100 * schema$nulls / pmax(1, (schema$non_null + schema$nulls)), 2)
-  missingness <- schema %>% dplyr::select(column, null_pct) %>% dplyr::arrange(dplyr::desc(null_pct))
   
-  # Strict missingness (also used to list missing rows)
-  is_missing_strict <- function(v) { v <- as.character(v); v[is.na(v)] <- ""; stringr::str_trim(v) == "" }
-  missing_rows_long <- dplyr::bind_rows(lapply(names(df), function(col) {
+  # Strict missingness by column
+  is_missing_strict <- function(v) { v <- as.character(v); v[is.na(v)] <- ""; str_trim(v) == "" }
+  missingness_strict <- data.frame(
+    column = names(df),
+    missing_pct = vapply(names(df), function(col) mean(is_missing_strict(df[[col]])), numeric(1))
+  ) %>% mutate(missing_pct = round(100*missing_pct, 2)) %>% arrange(desc(missing_pct))
+  
+  # Missing PROMPT rows with indexes (for all prompt-like columns)
+  missing_rows_prompts <- bind_rows(lapply(prompt_like_cols, function(col) {
     v <- df[[col]]; miss <- is_missing_strict(v)
     if (!any(miss)) return(NULL)
-    data.frame(
-      column = col,
-      row_index = which(miss) - 1,
-      value_preview = substr(as.character(replace(v, is.na(v), ""))[miss], 1, 200),
-      stringsAsFactors = FALSE
-    )
+    data.frame(prompt_column = col, row_index = which(miss) - 1, stringsAsFactors = FALSE)
   }))
-  if (is.null(missing_rows_long)) missing_rows_long <- data.frame(column=character(), row_index=integer(), value_preview=character(), stringsAsFactors = FALSE)
+  if (is.null(missing_rows_prompts)) missing_rows_prompts <- data.frame(prompt_column=character(), row_index=integer(), stringsAsFactors = FALSE)
   
+  # ---------------- Duplicates ----------------
   # Exact duplicates across main text fields
   exact_duplicates <- data.frame()
   if (length(prompt_like_cols) > 0) {
     key <- apply(df[prompt_like_cols], 1, function(row) paste(row, collapse = " || "))
     dup_mask <- duplicated(key) | duplicated(key, fromLast = TRUE)
     if (any(dup_mask, na.rm = TRUE)) {
-      exact_duplicates <- data.frame(
-        row_index = which(dup_mask) - 1,
-        group_id  = as.integer(factor(key[dup_mask])) - 1,
-        preview   = substr(key[dup_mask], 1, 200),
-        stringsAsFactors = FALSE
-      ) %>% dplyr::arrange(group_id, row_index)
+      exact_duplicates <- data.frame(row_index = which(dup_mask) - 1, stringsAsFactors = FALSE)
     }
   }
   
-  # Near-duplicates on representative prompt column
+  # Near-duplicates on representative column
   near_duplicates <- data.frame()
-  if (!is.null(rep_text_col)) {
-    texts <- df[[rep_text_col]]; texts <- if (is.character(texts)) texts else as.character(texts); texts[is.na(texts)] <- ""
-    norm <- tolower(stringr::str_squish(texts))
-    if (length(norm) > 1 && any(nchar(norm) > 0)) {
-      it <- text2vec::itoken(norm, progressbar = FALSE)
-      vocab <- text2vec::create_vocabulary(it, ngram = c(3L, 6L), stopwords = character(0))
-      dtm <- text2vec::create_dtm(it, text2vec::vocab_vectorizer(vocab))
-      if (nrow(dtm) > 1) {
-        sim <- text2vec::sim2(dtm, method = "cosine", norm = "l2")
-        coords <- which(sim >= near_dup_threshold, arr.ind = TRUE)
-        coords <- coords[coords[,1] < coords[,2], , drop = FALSE]
-        if (nrow(coords) > 0) {
-          near_duplicates <- data.frame(
-            i = coords[,1] - 1,
-            j = coords[,2] - 1,
-            cosine_sim = sim[coords],
-            i_preview = substr(texts[coords[,1]], 1, 200),
-            j_preview = substr(texts[coords[,2]], 1, 200),
-            stringsAsFactors = FALSE
-          ) %>% dplyr::arrange(dplyr::desc(cosine_sim))
-        }
+  rep_text <- df[[rep_text_col]]; rep_text <- if (is.character(rep_text)) rep_text else as.character(rep_text); rep_text[is.na(rep_text)] <- ""
+  norm <- tolower(str_squish(rep_text))
+  if (length(norm) > 1 && any(nchar(norm) > 0)) {
+    it <- itoken(norm, progressbar = FALSE)
+    vocab <- create_vocabulary(it, ngram = c(3L, 6L), stopwords = character(0))
+    dtm <- create_dtm(it, vocab_vectorizer(vocab))
+    if (nrow(dtm) > 1) {
+      sim <- text2vec::sim2(dtm, method = "cosine", norm = "l2")
+      coords <- which(sim >= near_dup_threshold, arr.ind = TRUE)
+      coords <- coords[coords[,1] < coords[,2], , drop = FALSE]
+      if (nrow(coords) > 0) {
+        near_duplicates <- data.frame(i = coords[,1] - 1, j = coords[,2] - 1, stringsAsFactors = FALSE)
       }
     }
   }
   
-  # Length outliers (z > 3)
-  length_outliers <- data.frame()
-  if (length(prompt_like_cols) > 0) {
-    for (c in prompt_like_cols) {
-      s <- df[[c]]; s <- if (is.character(s)) s else as.character(s); s[is.na(s)] <- ""
-      nchar_vec <- nchar(s); sdv <- stats::sd(nchar_vec)
-      if (sdv > 0) {
-        z <- (nchar_vec - mean(nchar_vec)) / sdv; idx <- which(z > 3)
-        if (length(idx) > 0) {
-          length_outliers <- dplyr::bind_rows(length_outliers, data.frame(
-            column = c, row_index = idx - 1, char_len = nchar_vec[idx],
-            preview = substr(s[idx], 1, 200), stringsAsFactors = FALSE
-          ))
-        }
-      }
-    }
-  }
+  # Rows involved in ANY duplicate (exact or near)
+  duplicate_row_idx <- unique(c(exact_duplicates$row_index, near_duplicates$i, near_duplicates$j))
+  duplicate_row_idx <- duplicate_row_idx[!is.na(duplicate_row_idx)]
   
-  # Technique coverage
-  category_counts <- data.frame()
-  technique_cols <- names(df)[stringr::str_detect(names(df), regex("\\btechnique\\b", ignore_case = TRUE))]
+  # ---------------- Technique balance (collapse combined) ----------------
+  technique_cols <- names(df)[str_detect(names(df), regex("\\btechnique\\b", ignore_case = TRUE))]
+  technique_counts_collapsed <- data.frame()
+  duplicates_by_technique <- data.frame()
+  
   if (length(technique_cols) > 0) {
     tech_col <- technique_cols[1]
-    techs <- as.character(df[[tech_col]])
-    category_counts <- as.data.frame(table(techs), stringsAsFactors = FALSE) %>%
-      dplyr::arrange(dplyr::desc(Freq)) %>% dplyr::rename(!!tech_col := techs, count = Freq)
-  }
-  
-  # Paired-field identical (first two prompt-like columns)
-  paired_field_check <- data.frame()
-  if (length(prompt_like_cols) >= 2) {
-    a <- prompt_like_cols[1]; b <- prompt_like_cols[2]
-    A <- df[[a]]; B <- df[[b]]
-    A <- tolower(stringr::str_trim(replace(if (is.character(A)) A else as.character(A), is.na(A), "")))
-    B <- tolower(stringr::str_trim(replace(if (is.character(B)) B else as.character(B), is.na(B), "")))
-    eq <- sum(A == B)
-    paired_field_check <- data.frame(
-      field_A = a, field_B = b,
-      identical_pairs = eq,
-      total_pairs_checked = nrow(df),
-      identical_pct = round(100 * eq / max(1, nrow(df)), 2),
-      stringsAsFactors = FALSE
-    )
-  }
-  
-  # Paraphrased exact duplicate PAIRS (counts & rows)
-  paraphrase_exact_duplicates <- data.frame()
-  paraphrase_exact_duplicate_pairs_count <- data.frame(metric = "paraphrase_exact_duplicate_pairs", value = 0)
-  para_text_candidates <- names(df)[stringr::str_detect(names(df), regex("para(phrase|phrased)?|paraphrased|rephrase(d)?", ignore_case = TRUE))]
-  para_text_col <- intersect(para_text_candidates, text_cols)
-  if (length(para_text_col) > 0) {
-    para_col <- para_text_col[1]
-    vals <- df[[para_col]]; vals <- if (is.character(vals)) vals else as.character(vals); vals[is.na(vals)] <- ""
-    key <- vals
-    dup_mask <- duplicated(key) | duplicated(key, fromLast = TRUE)
-    if (any(dup_mask, na.rm = TRUE)) {
-      paraphrase_exact_duplicates <- data.frame(
-        row_index = which(dup_mask) - 1,
-        group_key = key[dup_mask],
-        stringsAsFactors = FALSE
-      ) %>% dplyr::mutate(group_id = as.integer(factor(group_key)) - 1) %>%
-        dplyr::select(row_index, group_id, group_key) %>% dplyr::arrange(group_id, row_index)
-      group_sizes <- table(factor(key[dup_mask]))
-      pairs_count <- sum(choose(as.integer(group_sizes), 2))
-      paraphrase_exact_duplicate_pairs_count$value <- pairs_count
+    techs_raw <- as.character(df[[tech_col]])
+    techs_plot <- collapse_technique(techs_raw)
+    
+    technique_counts_collapsed <- as.data.frame(table(techs_plot), stringsAsFactors = FALSE) %>%
+      rename(Technique = techs_plot, count = Freq) %>% arrange(desc(count))
+    
+    # Duplicate rows per technique (collapsed)
+    if (length(duplicate_row_idx) > 0) {
+      duplicates_by_technique <- data.frame(
+        Technique = collapse_technique(techs_raw[duplicate_row_idx + 1])  # convert 0-based to 1-based
+      ) %>% count(Technique, name = "dup_rows_involved") %>% arrange(desc(dup_rows_involved))
+    } else {
+      duplicates_by_technique <- data.frame(Technique = character(), dup_rows_involved = integer())
     }
   }
   
-  # Split leakage
+  # ---------------- Length outliers on representative prompt ----------------
+  length_outliers <- data.frame(); outlier_cut <- NA_real_
+  prompt_lengths <- nchar(rep_text)
+  if (length(prompt_lengths) > 1) {
+    mu <- mean(prompt_lengths); sdv <- stats::sd(prompt_lengths)
+    z <- if (sdv > 0) (prompt_lengths - mu) / sdv else rep(0, length(prompt_lengths))
+    idx <- which(z > 3)
+    if (length(idx) > 0) {
+      length_outliers <- data.frame(row_index = idx - 1, char_len = prompt_lengths[idx], stringsAsFactors = FALSE)
+    }
+    outlier_cut <- if (sdv > 0) mu + 3*sdv else NA_real_
+  }
+  
+  # ---------------- Split leakage ----------------
   cross_split_near_dups <- data.frame()
-  split_cols <- names(df)[stringr::str_detect(names(df), regex("\\b(split|fold|partition|set)\\b", ignore_case = TRUE))]
+  split_cols <- names(df)[str_detect(names(df), regex("\\b(split|fold|partition|set)\\b", ignore_case = TRUE))]
   split_status_msg <- ""
   if (!is.null(rep_text_col) && length(split_cols) > 0) {
     split_col <- split_cols[1]
-    texts <- df[[rep_text_col]]; texts <- if (is.character(texts)) texts else as.character(texts)
-    texts <- tolower(stringr::str_squish(replace(texts, is.na(texts), "")))
+    texts <- tolower(str_squish(replace(rep_text, is.na(rep_text), "")))
     if (length(texts) > 1 && any(nchar(texts) > 0)) {
-      it <- text2vec::itoken(texts, progressbar = FALSE)
-      vocab <- text2vec::create_vocabulary(it, ngram = c(3L, 6L), stopwords = character(0))
-      dtm <- text2vec::create_dtm(it, text2vec::vocab_vectorizer(vocab))
+      it <- itoken(texts, progressbar = FALSE)
+      vocab <- create_vocabulary(it, ngram = c(3L, 6L), stopwords = character(0))
+      dtm <- create_dtm(it, vocab_vectorizer(vocab))
       if (nrow(dtm) > 1) {
         sim <- text2vec::sim2(dtm, method = "cosine", norm = "l2")
         coords <- which(sim >= split_leak_threshold, arr.ind = TRUE)
@@ -276,7 +257,7 @@ validate_prompts_view <- function(df,
               i = coords[,1] - 1, i_split = splits[coords[,1]],
               j = coords[,2] - 1, j_split = splits[coords[,2]],
               cosine_sim = sim[coords], stringsAsFactors = FALSE
-            ) %>% dplyr::arrange(dplyr::desc(cosine_sim))
+            ) %>% arrange(desc(cosine_sim))
           }
         }
       }
@@ -288,138 +269,199 @@ validate_prompts_view <- function(df,
     split_status_msg <- "Split leakage check: NO split/fold/set column found (check skipped)."
   }
   
-  # Auto-detected agreement (fallback)
-  ira_cols <- guess_result_columns(df)
-  ira_summary <- data.frame(); ira_confusion <- data.frame()
-  if (!is.null(ira_cols$direct) && !is.null(ira_cols$paraphrase) &&
-      ira_cols$direct %in% names(df) && ira_cols$paraphrase %in% names(df)) {
-    res <- compute_agreement(df[[ira_cols$direct]], df[[ira_cols$paraphrase]])
-    if (!is.null(res$summary)) ira_summary <- res$summary
-    if (!is.null(res$confusion)) {
-      ira_confusion <- tibble::as_tibble(
-        tibble::rownames_to_column(as.data.frame(res$confusion), var = "direct\\paraphrase")
-      )
-    }
-  }
-  
-  # Direct vs Paraphrased per model
+  # ---------------- Direct vs Paraphrased per model (IRA) ----------------
   ira_summary_Grok <- ira_confusion_Grok <- ira_summary_GPT5 <- ira_confusion_GPT5 <- ira_summary_Gemini <- ira_confusion_Gemini <- data.frame()
   model_result_pairs <- list(
     Grok   = list(direct = "Test Result Grok - Direct",    paraphrase = "Test Result Grok - paraphrased"),
     GPT5   = list(direct = "Test Result (GPT-5) - Direct", paraphrase = "Test Result (GPT-5) - paraphrased"),
     Gemini = list(direct = "Test Result Gemini - Direct",  paraphrase = "Test Result Gemini - paraphrased")
   )
+  ira_bar <- data.frame(model=character(), percent_agreement=numeric(), cohens_kappa=numeric(), n_pairs=integer())
+  
   for (m in names(model_result_pairs)) {
     cols <- model_result_pairs[[m]]
     if (all(c(cols$direct, cols$paraphrase) %in% names(df))) {
       res <- compute_agreement(df[[cols$direct]], df[[cols$paraphrase]])
       if (!is.null(res$summary)) {
         summ <- res$summary
-        summ <- data.frame(metric = c("model", as.character(summ$metric)),
-                           value  = c(m, as.character(summ$value)),
-                           stringsAsFactors = FALSE)
-        if (m == "Grok")   ira_summary_Grok <- summ
-        if (m == "GPT5")   ira_summary_GPT5 <- summ
-        if (m == "Gemini") ira_summary_Gemini <- summ
-      }
-      if (!is.null(res$confusion)) {
-        conf <- tibble::as_tibble(tibble::rownames_to_column(as.data.frame(res$confusion), var = "direct\\paraphrase"))
-        if (m == "Grok")   ira_confusion_Grok <- conf
-        if (m == "GPT5")   ira_confusion_GPT5 <- conf
-        if (m == "Gemini") ira_confusion_Gemini <- conf
+        ira_bar <- bind_rows(ira_bar, data.frame(
+          model = m,
+          n_pairs = as.numeric(summ$value[summ$metric=="n_pairs"]),
+          percent_agreement = as.numeric(summ$value[summ$metric=="percent_agreement"]),
+          cohens_kappa = as.numeric(summ$value[summ$metric=="cohens_kappa"])
+        ))
+        # per-model tables
+        summ_tbl <- data.frame(metric = c("model", as.character(summ$metric)),
+                               value  = c(m, as.character(summ$value)), stringsAsFactors = FALSE)
+        conf_tbl <- if (!is.null(res$confusion)) tibble::as_tibble(
+          tibble::rownames_to_column(as.data.frame(res$confusion), var = "direct\\paraphrase")
+        ) else data.frame()
+        if (m == "Grok")   { ira_summary_Grok <- summ_tbl;   ira_confusion_Grok <- conf_tbl }
+        if (m == "GPT5")   { ira_summary_GPT5 <- summ_tbl;   ira_confusion_GPT5 <- conf_tbl }
+        if (m == "Gemini") { ira_summary_Gemini <- summ_tbl; ira_confusion_Gemini <- conf_tbl }
       }
     }
   }
   
-  # Inter-model agreement on PARAPHRASED results
+  # Inter-model agreement on PARAPHRASED results (bar)
   inter_pairs <- list(
-    "Grok_vs_GPT5"   = c("Test Result Grok - paraphrased",   "Test Result (GPT-5) - paraphrased"),
-    "Grok_vs_Gemini" = c("Test Result Grok - paraphrased",   "Test Result Gemini - paraphrased"),
-    "GPT5_vs_Gemini" = c("Test Result (GPT-5) - paraphrased","Test Result Gemini - paraphrased")
+    "Grok vs GPT-5"   = c("Test Result Grok - paraphrased",   "Test Result (GPT-5) - paraphrased"),
+    "Grok vs Gemini"  = c("Test Result Grok - paraphrased",   "Test Result Gemini - paraphrased"),
+    "GPT-5 vs Gemini" = c("Test Result (GPT-5) - paraphrased","Test Result Gemini - paraphrased")
   )
-  inter_summaries <- list(); inter_confusions <- list()
+  inter_bar <- data.frame(pair=character(), percent_agreement=numeric(), n_pairs=integer(), stringsAsFactors = FALSE)
   for (nm in names(inter_pairs)) {
     pair <- inter_pairs[[nm]]
     if (all(pair %in% names(df))) {
       res <- compute_agreement(df[[pair[1]]], df[[pair[2]]])
-      if (!is.null(res$summary)) inter_summaries[[nm]] <- res$summary %>% dplyr::mutate(pair = nm, .before = 1)
-      if (!is.null(res$confusion)) inter_confusions[[nm]] <- tibble::as_tibble(
-        tibble::rownames_to_column(as.data.frame(res$confusion), var = paste0(nm, " : left\\right"))
-      )
+      if (!is.null(res$summary)) {
+        n <- as.numeric(res$summary$value[res$summary$metric=="n_pairs"])
+        pa <- as.numeric(res$summary$value[res$summary$metric=="percent_agreement"])
+        inter_bar <- bind_rows(inter_bar, data.frame(pair = nm, percent_agreement = pa, n_pairs = n))
+      }
     }
   }
-  inter_summary_tbl <- if (length(inter_summaries)) dplyr::bind_rows(inter_summaries) else data.frame()
-  inter_confusion_tbls <- inter_confusions
   
-  # ---- Console summary (spaced) ----
+  # ---------------- Console summary (spaced) ----------------
   cat("Rows:", nrow(df), "  Columns:", ncol(df), "\n\n")
-  cat("Exact duplicate rows (across main text fields):", if (nrow(exact_duplicates)>0) length(unique(exact_duplicates$row_index)) else 0, "\n")
-  cat("Near-duplicate pairs:", if (nrow(near_duplicates)>0) nrow(near_duplicates) else 0, "\n")
-  cat("Length outlier rows:", if (nrow(length_outliers)>0) length(unique(length_outliers$row_index)) else 0, "\n\n")
   cat(split_status_msg, "\n\n")
-  cat("Paraphrased exact-duplicate PAIRS:", paraphrase_exact_duplicate_pairs_count$value, "\n\n")
   
-  if (nrow(ira_summary) > 0) cat("Auto-detected Direct vs Paraphrased agreement pairs:", ira_summary$value[ira_summary$metric=="n_pairs"], "\n\n")
-  if (nrow(ira_summary_Grok) > 0)   cat("Grok   (Direct vs Paraphrased) agreement pairs:",   ira_summary_Grok$value[ira_summary_Grok$metric=="n_pairs"], "\n")
-  if (nrow(ira_summary_GPT5) > 0)   cat("GPT-5  (Direct vs Paraphrased) agreement pairs:",   ira_summary_GPT5$value[ira_summary_GPT5$metric=="n_pairs"], "\n")
-  if (nrow(ira_summary_Gemini) > 0) cat("Gemini (Direct vs Paraphrased) agreement pairs:",   ira_summary_Gemini$value[ira_summary_Gemini$metric=="n_pairs"], "\n")
-  cat("\n")
-  if (nrow(inter_summary_tbl) > 0) {
-    cat("Inter-model agreement on PARAPHRASED results:\n")
-    for (nm in unique(inter_summary_tbl$pair)) {
-      sub <- inter_summary_tbl[inter_summary_tbl$pair == nm, , drop = FALSE]
-      cat(sprintf("  %s -> n=%s | %%agree=%s | kappa=%s\n",
-                  nm,
-                  sub$value[sub$metric=="n_pairs"],
-                  sub$value[sub$metric=="percent_agreement"],
-                  sub$value[sub$metric=="cohens_kappa"]))
-    }
-    cat("\n")
+  # ---------------- COLORFUL PLOTS (SAVE EACH) ----------------
+  # Dynamic palettes that handle many categories
+  make_hue_palette <- function(n, seed = 123) { set.seed(seed); scales::hue_pal()(n) }
+  
+  plot_idx <- 1
+  
+  # 1) Technique balance (collapsed)
+  if (nrow(technique_counts_collapsed) > 0) {
+    tech_palette <- setNames(make_hue_palette(nrow(technique_counts_collapsed)),
+                             technique_counts_collapsed$Technique)
+    p_tech <- ggplot(technique_counts_collapsed, aes(x = Technique, y = count, fill = Technique)) +
+      geom_col(width = 0.75) +
+      scale_y_continuous(labels = comma) +
+      scale_fill_manual(values = tech_palette, guide = "none") +
+      labs(title = "Technique Balance (combined → Other (Combined))",
+           x = "Technique", y = "Count") +
+      theme_minimal(base_size = 12) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    print(p_tech); save_plot(p_tech, "01_technique_balance", plot_idx); plot_idx <- plot_idx + 1
   }
   
-  # ---- ONLY the requested View() tables ----
-  View(schema)
-  View(missingness)
-  View(missing_rows_long)
-  View(category_counts)
-  View(exact_duplicates)
-  View(near_duplicates)
-  View(length_outliers)
-  View(paired_field_check)
-  View(cross_split_near_dups)
-  View(paraphrase_exact_duplicate_pairs_count)
-  View(paraphrase_exact_duplicates)
-  View(ira_summary_Grok)
-  View(ira_confusion_Grok)
-  View(ira_summary_GPT5)
-  View(ira_confusion_GPT5)
-  View(ira_summary_Gemini)
-  View(ira_confusion_Gemini)
-  View(inter_summary_tbl)
-  if (length(inter_confusion_tbls) > 0) { for (nm in names(inter_confusion_tbls)) View(inter_confusion_tbls[[nm]]) }
+  # 2) Missingness (strict) by column
+  if (nrow(missingness_strict) > 0) {
+    p_miss <- ggplot(missingness_strict, aes(x = column, y = missing_pct, fill = missing_pct)) +
+      geom_col(width = 0.75) +
+      scale_fill_gradient(low = "#6EE7B7", high = "#EF4444") +
+      labs(title = "Missingness by Column (strict: NA / blank / whitespace)",
+           x = "Column", y = "Missing (%)") +
+      theme_minimal(base_size = 12) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    print(p_miss); save_plot(p_miss, "02_missingness_by_column", plot_idx); plot_idx <- plot_idx + 1
+  }
   
+  # 3) Length distribution + normal curve + shaded outlier region (x > cutoff)
+  if (length(prompt_lengths) > 1 && is.finite(outlier_cut)) {
+    df_len <- data.frame(len = prompt_lengths)
+    mu <- mean(prompt_lengths); sdv <- stats::sd(prompt_lengths)
+    
+    # Freedman–Diaconis rule for binwidth
+    bw <- IQR(prompt_lengths, na.rm = TRUE) / (length(prompt_lengths)^(1/3))
+    bw <- ifelse(is.finite(bw) && bw > 0, bw, max(1, round(diff(range(prompt_lengths))/30)))
+    
+    # Normal curve scaled to histogram counts
+    xseq <- seq(min(prompt_lengths), max(prompt_lengths), length.out = 200)
+    y_norm <- dnorm(xseq, mean = mu, sd = sdv)
+    scale_factor <- nrow(df_len) * bw
+    df_norm <- data.frame(x = xseq, y = y_norm * scale_factor)
+    
+    p_len <- ggplot(df_len, aes(x = len)) +
+      annotate("rect", xmin = outlier_cut, xmax = Inf, ymin = 0, ymax = Inf,
+               fill = "#FB7185", alpha = 0.25) +
+      geom_histogram(binwidth = bw, fill = "#60A5FA", color = "white", alpha = 0.9) +
+      geom_line(data = df_norm, aes(x = x, y = y), color = "#0EA5E9", linewidth = 1) +
+      geom_vline(xintercept = outlier_cut, linetype = "dashed", linewidth = 1, color = "#DC2626") +
+      labs(title = "Representative Prompt Lengths (normal curve + shaded outliers)",
+           x = "Characters", y = "Count") +
+      theme_minimal(base_size = 12)
+    print(p_len); save_plot(p_len, "03_prompt_length_distribution", plot_idx); plot_idx <- plot_idx + 1
+  }
+  
+  # 4a) IRA % agreement by model (Direct vs Paraphrased)
+  if (nrow(ira_bar) > 0) {
+    p_ira <- ggplot(ira_bar, aes(x = model, y = percent_agreement, fill = model)) +
+      geom_col(width = 0.7) +
+      geom_text(aes(label = paste0(round(percent_agreement,1), "%")), vjust = -0.5, size = 4) +
+      scale_y_continuous(labels = percent_format(scale = 1), limits = c(0, 100)) +
+      scale_fill_manual(values = make_hue_palette(nrow(ira_bar)), guide = "none") +
+      labs(title = "Direct vs Paraphrased Agreement (by Model)",
+           x = "Model", y = "Percent Agreement") +
+      theme_minimal(base_size = 12)
+    print(p_ira); save_plot(p_ira, "04_ira_by_model", plot_idx); plot_idx <- plot_idx + 1
+  }
+  
+  # 4b) Inter-model agreement (PARAPHRASED)
+  if (nrow(inter_bar) > 0) {
+    p_inter <- ggplot(inter_bar, aes(x = pair, y = percent_agreement, fill = pair)) +
+      geom_col(width = 0.7) +
+      geom_text(aes(label = paste0(round(percent_agreement,1), "%")), vjust = -0.5, size = 4) +
+      scale_y_continuous(labels = percent_format(scale = 1), limits = c(0, 100)) +
+      scale_fill_manual(values = make_hue_palette(nrow(inter_bar)), guide = "none") +
+      labs(title = "Inter-Model Agreement on PARAPHRASED Results",
+           x = "Model Pair", y = "Percent Agreement") +
+      theme_minimal(base_size = 12)
+    print(p_inter); save_plot(p_inter, "05_inter_model_agreement", plot_idx); plot_idx <- plot_idx + 1
+  }
+  
+  # 5) Duplicates per Technique — colourful bars
+  if (nrow(duplicates_by_technique) > 0) {
+    dup_palette <- setNames(make_hue_palette(nrow(duplicates_by_technique)),
+                            duplicates_by_technique$Technique)
+    p_dup <- ggplot(duplicates_by_technique, aes(x = Technique, y = dup_rows_involved, fill = Technique)) +
+      geom_col(width = 0.75) +
+      scale_y_continuous(labels = comma) +
+      scale_fill_manual(values = dup_palette, guide = "none") +
+      labs(title = "Rows Involved in Duplicates by Technique (exact OR near-dup)",
+           x = "Technique", y = "Duplicate Rows") +
+      theme_minimal(base_size = 12) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    print(p_dup); save_plot(p_dup, "06_duplicates_by_technique", plot_idx); plot_idx <- plot_idx + 1
+  }
+  
+  # ---------------- MINIMAL TABLES ----------------
+  View(schema)                            # 6) schema validation [TABLE]
+  View(missing_rows_prompts)              # 2) missing prompt rows + indexes [TABLE]
+  if (nrow(technique_counts_collapsed) > 0) View(technique_counts_collapsed)   # 1) technique balance [TABLE]
+  if (nrow(length_outliers) > 0) View(length_outliers)                         # 3) outlier rows [TABLE]
+  if (nrow(duplicates_by_technique) > 0) View(duplicates_by_technique)         # 5) dup rows per technique [TABLE]
+  
+  # 4) IRA tables
+  if (nrow(ira_summary_Grok) > 0)   View(ira_summary_Grok)
+  if (nrow(ira_confusion_Grok) > 0) View(ira_confusion_Grok)
+  if (nrow(ira_summary_GPT5) > 0)   View(ira_summary_GPT5)
+  if (nrow(ira_confusion_GPT5) > 0) View(ira_confusion_GPT5)
+  if (nrow(ira_summary_Gemini) > 0) View(ira_summary_Gemini)
+  if (nrow(ira_confusion_Gemini) > 0) View(ira_confusion_Gemini)
+  
+  # Optional: show split leakage pairs table (if any)
+  if (nrow(cross_split_near_dups) > 0) View(cross_split_near_dups)
+  
+  # Return for programmatic reuse
   invisible(list(
     schema = schema,
-    missingness = missingness,
-    missing_rows_long = missing_rows_long,
-    technique_counts = category_counts,
-    exact_duplicates = exact_duplicates,
-    near_duplicates = near_duplicates,
+    missingness_strict = missingness_strict,
+    missing_rows_prompts = missing_rows_prompts,
+    technique_counts_collapsed = technique_counts_collapsed,
     length_outliers = length_outliers,
-    paired_field_check = paired_field_check,
+    duplicates_by_technique = duplicates_by_technique,
+    ira_bar = ira_bar,
+    inter_bar = inter_bar,
+    ira_summary_Grok = ira_summary_Grok,   ira_confusion_Grok = ira_confusion_Grok,
+    ira_summary_GPT5 = ira_summary_GPT5,   ira_confusion_GPT5 = ira_confusion_GPT5,
+    ira_summary_Gemini = ira_summary_Gemini, ira_confusion_Gemini = ira_confusion_Gemini,
     cross_split_near_dups = cross_split_near_dups,
-    paraphrase_exact_duplicate_pairs_count = paraphrase_exact_duplicate_pairs_count,
-    paraphrase_exact_duplicates = paraphrase_exact_duplicates,
-    ira_summary_Grok = ira_summary_Grok,
-    ira_confusion_Grok = ira_confusion_Grok,
-    ira_summary_GPT5 = ira_summary_GPT5,
-    ira_confusion_GPT5 = ira_confusion_GPT5,
-    ira_summary_Gemini = ira_summary_Gemini,
-    ira_confusion_Gemini = ira_confusion_Gemini,
-    inter_model_paraphrase_summary = inter_summary_tbl,
-    inter_model_paraphrase_confusions = inter_confusion_tbls,
     prompt_like_cols = prompt_like_cols,
-    rep_text_col = rep_text_col
+    rep_text_col = rep_text_col,
+    output_dir = output_dir
   ))
 }
 
@@ -429,8 +471,17 @@ try({
   path <- file.choose()
   message("Reading: ", path)
   df <- read_dataset_auto(path)
-  results <- validate_prompts_view(df,
-                                   rep_text_col = NULL,
-                                   near_dup_threshold = 0.90,
-                                   split_leak_threshold = 0.92)
+  # make a timestamped output folder using dataset base name
+  stamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  base  <- tools::file_path_sans_ext(basename(path))
+  outdir <- paste0(base, "_plots_", stamp)
+  message("Saving plots to: ", normalizePath(outdir, winslash = "/",
+                                             mustWork = FALSE))
+  results <- validate_prompts_view(
+    df,
+    rep_text_col = NULL,       # auto-pick representative prompt column
+    near_dup_threshold = 0.90, # near-duplicate similarity
+    split_leak_threshold = 0.92,
+    output_dir = outdir        # <--- all plots saved here
+  )
 }, silent = FALSE)
