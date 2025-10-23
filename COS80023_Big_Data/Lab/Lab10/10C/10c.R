@@ -30,6 +30,7 @@ km_all$cluster
 
 km_clusters_test <- factor(km_all$cluster[-idx])
 
+km_clusters_test
 
 cmp <- test %>%
   mutate(
