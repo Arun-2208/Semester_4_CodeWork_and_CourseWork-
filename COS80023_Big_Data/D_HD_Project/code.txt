@@ -1,0 +1,487 @@
+step 0 — one-time setup
+
+why: keep project tidy; load only what we need.
+
+
+> dir.create("data", showWarnings = FALSE)
+> dir.create("output", showWarnings = FALSE)
+> 
+> # packages (attach only what we need; call others with ::)
+> pkgs <- c("tidyverse","lubridate")
+> new <- setdiff(pkgs, rownames(installed.packages()))
+> if(length(new)) install.packages(new, quiet = TRUE)
+> invisible(lapply(pkgs, library, character.only = TRUE))
+> 
+
+step 1 — load data
+
+why: bring in the two tables we need: crashes/severity + geography
+
+> acc  <- readr::read_csv("data/accident.csv") %>% janitor::clean_names()
+> node <- readr::read_csv("data/node.csv")     %>% janitor::clean_names()
+> glimpse(acc)
+> glimpse(node)
+
+
+step 2 — derive Urban/Rural + time periods
+
+why: Urban/Rural is our “where,” periods are our “when,” and we’ll compare fairly by period length later.
+
+> # 2a) derive URBAN/RURAL from node.DEG_URBAN_NAME
+> node_geo <- node %>%
++     select(accident_no, deg_urban_name) %>%
++     mutate(urban_rural = case_when(
++         str_detect(toupper(coalesce(deg_urban_name,"")), "URBAN") ~ "URBAN",
++         str_detect(toupper(coalesce(deg_urban_name,"")), "RURAL") ~ "RURAL",
++         TRUE ~ "UNKNOWN"
++     ))
+
+
+
+> library(lubridate)
+> library(dplyr)
+> 
+> # Helper: robust parse for accident_date
+> parse_accident_date <- function(x_chr){
++   # Try many common formats (with/without time)
++   dt <- suppressWarnings(parse_date_time(
++     x_chr,
++     orders = c(
++       "dmy","ymd","mdy",
++       "dmy HMS","ymd HMS","mdy HMS",
++       "d/m/Y","Y/m/d","m/d/Y",
++       "d-m-Y","Y-m-d","m-d-Y",
++       "d.m.Y","Y.m.d",
++       "d%b%Y","b%d%Y"      # e.g., 15Jan2018, Jan15 2018
++     ),
++     tz = "UTC"
++   ))
++ 
++   # If some entries look numeric (Excel serials), convert those
++   x_num <- suppressWarnings(as.numeric(x_chr))
++   needs_excel <- is.na(dt) & !is.na(x_num)
++   if(any(needs_excel)){
++     dt[needs_excel] <- as.Date(x_num[needs_excel], origin = "1899-12-30")
++   }
++ 
++   # Return pure Date
++   as.Date(dt)
++ }
+> 
+> # ---- Step 2b (revised): parse date/year and join geography ----
+> node_geo <- node %>%
++   select(accident_no, deg_urban_name) %>%
++   mutate(urban_rural = case_when(
++     grepl("URBAN", toupper(coalesce(deg_urban_name, ""))) ~ "URBAN",
++     grepl("RURAL", toupper(coalesce(deg_urban_name, ""))) ~ "RURAL",
++     TRUE ~ "UNKNOWN"
++   ))
+> 
+> acc_j <- acc %>%
++   mutate(
++     accident_date = parse_accident_date(as.character(accident_date)),
++     year = lubridate::year(accident_date),
++     no_persons_killed = suppressWarnings(as.numeric(no_persons_killed))
++   ) %>%
++   left_join(node_geo, by = "accident_no")
+
+
+
+> # period labeller + period lengths (same as before)
+> label_period <- function(y){
++     dplyr::case_when(
++         y %in% 2012:2014 ~ "2012–2014",
++         y %in% 2015:2017 ~ "2015–2017",
++         y %in% 2018:2020 ~ "2018–2020",
++         y %in% 2021:2023 ~ "2021–2023",
++         y %in% 2024:2025 ~ "2024–2025",
++         TRUE ~ NA_character_
++     )
++ }
+> years_in_period <- c("2012–2014"=3,"2015–2017"=3,"2018–2020"=3,"2021–2023"=3,"2024–2025"=2)
+> 
+> # 2c) create acc_p
+> acc_p <- acc_j %>%
++     dplyr::mutate(
++         period = label_period(year),
++         urban_rural = dplyr::coalesce(urban_rural, "UNKNOWN")
++     ) %>%
++     dplyr::filter(!is.na(period))
+
+
+> ls()                          
+> dplyr::count(acc_p, period, urban_rural)
+
+
+
+
+step 3 — baseline table (severity per 1,000 by Urban/Rural across periods)
+
+why: this directly answers “where severity is higher and how it changed.”
+
+
+> baseline <- acc_p %>%
++     group_by(period, urban_rural) %>%
++     summarise(
++         crashes    = n(),
++         fatalities = sum(no_persons_killed %||% 0, na.rm = TRUE),
++         .groups = "drop"
++     ) %>%
++     mutate(
++         years = years_in_period[period],
++         crashes_per_year = crashes / years,
++         fatal_per_1000   = 1000 * fatalities / crashes
++     ) %>%
++     arrange(period, urban_rural)
+> 
+> readr::write_csv(baseline, "output/insight1_baseline_urban_rural.csv")
+> baseline  
+
+
+step 4 — baseline plot (simple line)
+
+why: fast visual that stakeholders “get” in one glance.
+
+> 
+> period_order <- c("2012–2014","2015–2017","2018–2020","2021–2023","2024–2025")
+> baseline$period <- factor(baseline$period, levels = period_order)
+> 
+> p_baseline <- ggplot(baseline %>% filter(urban_rural %in% c("URBAN","RURAL")),
++                      aes(period, fatal_per_1000, group = urban_rural, color = urban_rural)) +
++     geom_line(linewidth = 1) +
++     geom_point(size = 3) +
++     labs(
++         title = "Fatalities per 1,000 crashes — Urban vs Rural by period",
++         x = NULL, y = "Fatalities per 1,000 crashes", color = NULL
++     ) +
++     theme_minimal(base_size = 12)
+> 
+> ggsave("output/insight1_baseline_urban_rural.png", p_baseline, width = 9, height = 5, dpi = 150)
+> p_baseline
+
+
+Step 5 — Speed environment across all periods
+
+goal: for each period × Urban/Rural × speed bucket (posted limits), compute:
+
+severity: fatalities per 1,000 crashes
+
+exposure: share of crashes in each bucket
+
+then make:
+
+a faceted bar chart (per period) for severity, and
+
+a faceted scatter (per period) with x = exposure share and y = severity, coloured by Urban/Rural and shaped by speed bucket.
+
+assumes you already have acc_p from earlier steps.
+
+
+> # Re-parse with a very permissive approach & Excel serial fallback
+> reparse_date <- function(x_chr){
++     x_chr <- as.character(x_chr)
++     dt <- suppressWarnings(lubridate::parse_date_time(
++         x_chr,
++         orders = c(
++             "Y-m-d","d-m-Y","m-d-Y","Y/m/d","d/m/Y","m/d/Y",
++             "d.m.Y","Y.m.d","Ymd","dmY","mdY",
++             "Y-m-d HMS","d-m-Y HMS","m-d-Y HMS",
++             "Y/m/d HMS","d/m/Y HMS","m/d/Y HMS"
++         ), tz = "UTC"
++     ))
++     # Excel serials?
++     num <- suppressWarnings(as.numeric(x_chr))
++     need_serial <- is.na(dt) & !is.na(num)
++     if(any(need_serial)) dt[need_serial] <- as.Date(num[need_serial], origin = "1899-12-30")
++     as.Date(dt)
++ }
+> 
+> acc_j <- acc_j %>%
++     dplyr::mutate(
++         accident_date = reparse_date(accident_date),
++         year = lubridate::year(accident_date)
++     )
+> 
+> # Rebuild acc_p & periods
+> label_period <- function(y){
++     dplyr::case_when(
++         y %in% 2012:2014 ~ "2012–2014",
++         y %in% 2015:2017 ~ "2015–2017",
++         y %in% 2018:2020 ~ "2018–2020",
++         y %in% 2021:2023 ~ "2021–2023",
++         y %in% 2024:2025 ~ "2024–2025",
++         TRUE ~ NA_character_
++     )
++ }
+> years_in_period <- c("2012–2014"=3,"2015–2017"=3,"2018–2020"=3,"2021–2023"=3,"2024–2025"=2)
+> 
+> acc_p <- acc_j %>%
++     dplyr::mutate(
++         period = label_period(year),
++         urban_rural = dplyr::coalesce(urban_rural, "UNKNOWN")
++     ) %>%
++     dplyr::filter(!is.na(period))
+> 
+> dplyr::count(acc_p, period, sort = FALSE)
+# A tibble: 5 × 2
+  period        n
+  <chr>     <int>
+1 2012–2014 43083
+2 2015–2017 45542
+3 2018–2020 39940
+4 2021–2023 45295
+5 2024–2025 11053
+
+
+
+> # Clean posted speed limits -> numeric
+> acc_speed <- acc_p %>%
++     dplyr::mutate(
++         speed_numeric = readr::parse_number(as.character(speed_zone)),  # extracts digits safely
++         speed_bucket = dplyr::case_when(
++             speed_numeric %in% c(10,20,30,40,50,60) ~ "<=60",
++             speed_numeric %in% c(70,80)             ~ "70–80",
++             speed_numeric %in% c(90,100,110,120)    ~ ">=90",
++             TRUE                                     ~ "Unknown"
++         )
++     )
+> 
+> # Check distribution looks sensible now:
+> acc_speed %>%
++     dplyr::count(speed_bucket, sort = TRUE)
+# A tibble: 4 × 2
+  speed_bucket      n
+  <chr>         <int>
+1 <=60         103226
+2 70–80         39942
+3 >=90          28323
+4 Unknown       13422
+
+
+> period_order <- c("2012–2014","2015–2017","2018–2020","2021–2023","2024–2025")
+> 
+> # Severity per 1,000
+> speed_sev_all <- acc_speed %>%
++   dplyr::filter(urban_rural %in% c("URBAN","RURAL")) %>%
++   dplyr::group_by(period, urban_rural, speed_bucket) %>%
++   dplyr::summarise(
++     crashes = dplyr::n(),
++     fatalities = sum(dplyr::coalesce(no_persons_killed, 0), na.rm = TRUE),
++     fatal_per_1000 = 1000 * fatalities / crashes,
++     .groups = "drop"
++   )
+> 
+> # Exposure share
+> speed_comp_all <- acc_speed %>%
++   dplyr::filter(urban_rural %in% c("URBAN","RURAL")) %>%
++   dplyr::count(period, urban_rural, speed_bucket, name = "crashes") %>%
++   dplyr::group_by(period, urban_rural) %>%
++   dplyr::mutate(share = crashes / sum(crashes)) %>%
++   dplyr::ungroup()
+> 
+> # Join for plotting
+> speed_summary <- speed_sev_all %>%
++   dplyr::left_join(
++     speed_comp_all %>% dplyr::select(period, urban_rural, speed_bucket, share),
++     by = c("period","urban_rural","speed_bucket")
++   ) %>%
++   dplyr::mutate(period = factor(period, levels = period_order),
++                 share_pct = 100 * share)
+> 
+> # Save
+> readr::write_csv(speed_summary, "output/insight_speed_summary_all_periods.csv")
+>                                                                                                                       
+> # Faceted bars: severity
+> p_speed_bars <- ggplot(speed_summary %>% dplyr::filter(speed_bucket != "Unknown"),
++                        aes(speed_bucket, fatal_per_1000, fill = urban_rural)) +
++   geom_col(position = position_dodge(width = 0.7)) +
++   facet_wrap(~ period, ncol = 3) +
++   labs(title = "Fatalities per 1,000 by posted speed bucket — all periods",
++        x = "Posted speed bucket", y = "Fatalities per 1,000", fill = NULL) +
++   theme_minimal(base_size = 12)
+> ggsave("output/insight_speed_severity_all_periods.png", p_speed_bars, width = 12, height = 7, dpi = 150)
+> 
+> # Faceted scatter: exposure vs severity
+> p_speed_scatter <- ggplot(
++   speed_summary %>% dplyr::filter(speed_bucket != "Unknown"),
++   aes(x = share_pct, y = fatal_per_1000, color = urban_rural, shape = speed_bucket)
++ ) +
++   geom_point(size = 3, alpha = 0.9) +
++   facet_wrap(~ period, ncol = 3) +
++   labs(title = "Exposure (share %) vs severity (per 1,000) by posted speed — all periods",
++        x = "Share of crashes in bucket (%)", y = "Fatalities per 1,000",
++        color = NULL, shape = "Speed bucket") +
++   theme_minimal(base_size = 12)
+> ggsave("output/insight_speed_exposure_vs_severity_scatter.png",
++        p_speed_scatter, width = 12, height = 7, dpi = 150)
+
+
+Step 6 — Road geometry across all periods
+
+
+6.1 Map raw geometry descriptions → stable groups (robust)
+
+We handle common variants across years like “NO INTERSECTION”, “MID-BLOCK”, “T-JUNCTION”, “CROSS ROAD”, etc.
+
+> period_order <- c("2012–2014","2015–2017","2018–2020","2021–2023","2024–2025")
+> 
+> acc_geom <- acc_p %>%
++     mutate(
++         geom_raw = toupper(trimws(as.character(road_geometry_desc))),
++         geom_group = case_when(
++             # Open-road / non-intersection variants
++             !is.na(geom_raw) & grepl("NOT\\s*AT\\s*INTERSECTION|NO\\s*INTERSECTION|MID[- ]?BLOCK|OPEN\\s*ROAD|NON[- ]?INTERSECTION|MIDBLOCK|MID BLOCK", geom_raw)
++             ~ "Not at intersection",
++             # T intersection variants
++             !is.na(geom_raw) & grepl("\\bT[- ]?INTERSECTION\\b|\\bT[- ]?INT\\b|\\bT[- ]?JUNCTION\\b|\\bT JN\\b", geom_raw)
++             ~ "T intersection",
++             # Cross/4-way variants
++             !is.na(geom_raw) & grepl("CROSS( |-)?INTERSECTION|CROSS ?ROAD(S)?|FOUR[- ]?WAY|4[- ]?WAY|X[- ]?ROAD|CROSSING\\b", geom_raw)
++             ~ "Cross intersection",
++             # Roundabout variants
++             !is.na(geom_raw) & grepl("ROUNDABOUT|R'?ABOUT|RAB", geom_raw)
++             ~ "Roundabout",
++             TRUE ~ "Other/Unknown"
++         ),
++         period = factor(period, levels = period_order),
++         urban_rural = if_else(urban_rural %in% c("URBAN","RURAL"), urban_rural, "UNKNOWN")
++     )
+>
+
+
+6.2 Severity (fatalities per 1,000 crashes) by period × Urban/Rural × geometry
+
+> geom_sev_all <- acc_geom %>%
++   filter(urban_rural %in% c("URBAN","RURAL")) %>%
++   group_by(period, urban_rural, geom_group) %>%
++   summarise(
++     crashes = n(),
++     fatalities = sum(coalesce(no_persons_killed, 0), na.rm = TRUE),
++     fatal_per_1000 = 1000 * fatalities / crashes,
++     .groups = "drop"
++   )
+> write_csv(geom_sev_all, "output/insight_geometry_severity_all_periods.csv")
+>                       
+
+
+6.3 Exposure (share of crashes) by period × Urban/Rural × geometry      
+
+> geom_comp_all <- acc_geom %>%
++     filter(urban_rural %in% c("URBAN","RURAL")) %>%
++     count(period, urban_rural, geom_group, name = "crashes") %>%
++     group_by(period, urban_rural) %>%
++     mutate(share = crashes / sum(crashes)) %>%
++     ungroup()
+> write_csv(geom_comp_all, "output/insight_geometry_exposure_all_periods.csv")
+>                                                                                                                       
+> 
+
+6.4 Join severity + exposure into one tidy table (no category drop) 
+
+> 
+> geom_summary <- full_join(
++     geom_sev_all,
++     geom_comp_all %>% select(period, urban_rural, geom_group, share),
++     by = c("period","urban_rural","geom_group")
++ ) %>%
++     mutate(
++         period = factor(period, levels = period_order),
++         share = coalesce(share, 0),
++         share_pct = 100 * share
++     ) %>%
++     arrange(period, urban_rural, geom_group)
+> 
+> write_csv(geom_summary, "output/insight_geometry_summary_all_periods.csv")
+>                                                                                                                       
+> # Quick sanity checks
+> count(geom_summary, period)                  # expect all 5 periods
+# A tibble: 5 × 2
+  period        n
+  <fct>     <int>
+1 2012–2014     8
+2 2015–2017     8
+3 2018–2020     8
+4 2021–2023     8
+5 2024–2025     8
+> count(geom_summary, period, urban_rural)     # URBAN & RURAL present per period
+# A tibble: 10 × 3
+   period    urban_rural     n
+   <fct>     <chr>       <int>
+ 1 2012–2014 RURAL           4
+ 2 2012–2014 URBAN           4
+ 3 2015–2017 RURAL           4
+ 4 2015–2017 URBAN           4
+ 5 2018–2020 RURAL           4
+ 6 2018–2020 URBAN           4
+ 7 2021–2023 RURAL           4
+ 8 2021–2023 URBAN           4
+ 9 2024–2025 RURAL           4
+10 2024–2025 URBAN           4       
+
+
+
+Plots
+A) Faceted bar chart — severity per 1,000 by geometry (all periods)
+
+> dodge <- position_dodge2(width = , preserve = "single")
+> 
+> p_geom_bars <- ggplot(
++   geom_summary %>% dplyr::filter(geom_group != "Other/Unknown"),
++   aes(x = geom_group,
++       y = fatal_per_1000,
++       fill = urban_rural,
++       group = urban_rural)
++ ) +
++   geom_col(width = 0.65, position = dodge, colour = "white", linewidth = 0.2) +
++   facet_wrap(~ period, ncol = 3) +
++   labs(
++     title = "Fatalities per 1,000 crashes by road geometry — all periods",
++     x = "Road geometry", y = "Fatalities per 1,000 crashes", fill = NULL
++   ) +
++   scale_x_discrete(drop = TRUE, expand = expansion(mult = c(0.08, 0.08))) +
++   scale_y_continuous(expand = expansion(mult = c(0.02, 0.05))) +
++   theme_minimal(base_size = 12) +
++   theme(
++     axis.text.x   = element_text(angle = 20, hjust = 1),
++     panel.spacing = unit(0.9, "lines"),
++     legend.position = "top"
++   )
+> 
+> ggsave("output/insight_geometry_severity_all_periods.png",
++        p_geom_bars, width = 12, height = 7, dpi = 150)
+> p_geom_bars
+> 
+
+
+B) Faceted scatter — exposure vs severity by geometry (all periods)
+
+
+> p_geom_scatter <- ggplot(
++     geom_summary %>% dplyr::filter(geom_group != "Other/Unknown"),
++     aes(x = share_pct, y = fatal_per_1000,
++         color = urban_rural, shape = geom_group)
++ ) +
++     geom_point(size = 3, alpha = 0.9, position = position_jitter(width = 0.2, height = 0)) +
++     facet_wrap(~ period, ncol = 3) +
++     labs(
++         title = "Exposure (share %) vs severity (per 1,000) by geometry — all periods",
++         x = "Share of crashes in geometry (%)",
++         y = "Fatalities per 1,000 crashes",
++         color = NULL, shape = "Geometry"
++     ) +
++     scale_x_continuous(expand = expansion(mult = c(0.02, 0.05))) +
++     scale_y_continuous(expand = expansion(mult = c(0.02, 0.05))) +
++     theme_minimal(base_size = 12) +
++     theme(
++         panel.spacing  = unit(0.9, "lines"),
++         legend.position = "top"
++     )
+> 
+> ggsave("output/insight_geometry_exposure_vs_severity_scatter.png",
++        p_geom_scatter, width = 12, height = 7, dpi = 150)
+> p_geom_scatter
+
+
+
+
+                                              
