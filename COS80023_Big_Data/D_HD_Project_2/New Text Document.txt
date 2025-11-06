@@ -1,0 +1,586 @@
+
+
+#BASELINE
+
+# ============================
+# Geo4 Baseline — from scratch
+# ============================
+
+# 0) Setup ------------------------------------------------------------
+# (Optional) set your project folder first:
+# setwd("C:/Users/arunr/Music/Swinburne_Study/Sem_4/COS80023_Big_Data/D_HD_Project")
+
+dir.create("data",   showWarnings = FALSE)
+dir.create("output", showWarnings = FALSE)
+
+suppressPackageStartupMessages({
+  library(readr); library(dplyr); library(janitor)
+  library(stringr); library(lubridate); library(ggplot2)
+})
+
+# 1) Helpers ----------------------------------------------------------
+parse_accident_date <- function(x_chr){
+  x_chr <- as.character(x_chr)
+  dt <- suppressWarnings(lubridate::parse_date_time(
+    x_chr,
+    orders = c(
+      "Y-m-d","d-m-Y","m-d-Y","Y/m/d","d/m/Y","m/d/Y",
+      "d.m.Y","Y.m.d","Ymd","dmY","mdY",
+      "Y-m-d HMS","d-m-Y HMS","m-d-Y HMS",
+      "Y/m/d HMS","d/m/Y HMS","m/d/Y HMS"
+    ),
+    tz = "UTC"
+  ))
+  num <- suppressWarnings(as.numeric(x_chr))              # Excel serials
+  need_serial <- is.na(dt) & !is.na(num)
+  if(any(need_serial)) dt[need_serial] <- as.Date(num[need_serial], origin = "1899-12-30")
+  as.Date(dt)
+}
+
+label_period <- function(y){
+  dplyr::case_when(
+    y %in% 2012:2014 ~ "2012–2014",
+    y %in% 2015:2017 ~ "2015–2017",
+    y %in% 2018:2020 ~ "2018–2020",
+    y %in% 2021:2023 ~ "2021–2023",
+    y %in% 2024:2025 ~ "2024–2025",
+    TRUE ~ NA_character_
+  )
+}
+years_in_period <- c("2012–2014"=3,"2015–2017"=3,"2018–2020"=3,"2021–2023"=3,"2024–2025"=2)
+period_order    <- names(years_in_period)
+
+# 2) Load data (CSV files in /data) ----------------------------------
+acc_path  <- "data/accident.csv"
+node_path <- "data/node.csv"
+
+stopifnot(file.exists(acc_path), file.exists(node_path))
+
+acc  <- readr::read_csv(acc_path,  show_col_types = FALSE) %>% janitor::clean_names()
+node <- readr::read_csv(node_path, show_col_types = FALSE) %>% janitor::clean_names()
+
+# Basic column checks (fail fast with a clear message)
+needed_acc_cols  <- c("accident_no","accident_date","no_persons_killed")
+missing_acc      <- setdiff(needed_acc_cols, names(acc))
+if(length(missing_acc)) stop("Missing in accident.csv: ", paste(missing_acc, collapse=", "))
+
+needed_node_cols <- c("accident_no","deg_urban_name")
+missing_node     <- setdiff(needed_node_cols, names(node))
+if(length(missing_node)) stop("Missing in node.csv: ", paste(missing_node, collapse=", "))
+
+# 3) Build the Geo4 label and join -----------------------------------
+geo4_keep <- c("MELB_URBAN","RURAL_VICTORIA","SMALL_CITIES","TOWNS")
+
+node_geo4 <- node %>%
+  mutate(
+    deg_urban_name = toupper(trimws(as.character(deg_urban_name))),
+    geo4 = if_else(deg_urban_name %in% geo4_keep, deg_urban_name, NA_character_)
+  ) %>%
+  select(accident_no, geo4)
+
+acc4 <- acc %>%
+  mutate(
+    accident_date     = parse_accident_date(accident_date),
+    year              = lubridate::year(accident_date),
+    no_persons_killed = suppressWarnings(as.numeric(no_persons_killed))
+  ) %>%
+  left_join(node_geo4, by = "accident_no") %>%
+  mutate(period = label_period(year)) %>%
+  filter(!is.na(period), !is.na(geo4)) %>%
+  mutate(
+    period = factor(period, levels = period_order),
+    geo4   = factor(geo4,   levels = geo4_keep)
+  )
+
+# 4) Baseline severity per 1,000 by period × Geo4 --------------------
+baseline_geo4 <- acc4 %>%
+  group_by(period, geo4) %>%
+  summarise(
+    crashes    = n(),
+    fatalities = sum(coalesce(no_persons_killed, 0), na.rm = TRUE),
+    .groups    = "drop"
+  ) %>%
+  mutate(
+    years            = years_in_period[as.character(period)],
+    crashes_per_year = crashes / years,
+    fatal_per_1000   = 1000 * fatalities / crashes
+  ) %>%
+  arrange(period, geo4)
+
+# Save table + plot
+readr::write_csv(baseline_geo4, "output/insight_baseline_geo4.csv")
+
+p_base4 <- ggplot(baseline_geo4,
+                  aes(x = period, y = fatal_per_1000, color = geo4, group = geo4)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) +
+  labs(
+    title = "Fatalities per 1,000 crashes — MELB_URBAN vs RURAL_VICTORIA vs SMALL_CITIES vs TOWNS",
+    x = NULL, y = "Fatalities per 1,000 crashes", color = "Geography"
+  ) +
+  theme_minimal(base_size = 13)
+
+ggsave("output/insight_baseline_geo4.png", p_base4, width = 12, height = 6, dpi = 150)
+
+message("Baseline complete. Files written to /output")
+
+
+
+#SPEED ENVIRONMENT
+
+# ============================
+# Geo4 — Speed environment
+# ============================
+
+suppressPackageStartupMessages({
+  library(readr); library(dplyr); library(janitor)
+  library(stringr); library(lubridate); library(ggplot2); library(tidyr)
+})
+
+dir.create("output", showWarnings = FALSE)
+
+# --- Rebuild acc4 if missing (safe to leave in) ---
+if (!exists("acc4")) {
+  # helpers
+  parse_accident_date <- function(x_chr){
+    x_chr <- as.character(x_chr)
+    dt <- suppressWarnings(lubridate::parse_date_time(
+      x_chr,
+      orders = c("Y-m-d","d-m-Y","m-d-Y","Y/m/d","d/m/Y","m/d/Y",
+                 "d.m.Y","Y.m.d","Ymd","dmY","mdY",
+                 "Y-m-d HMS","d-m-Y HMS","m-d-Y HMS",
+                 "Y/m/d HMS","d/m/Y HMS","m/d/Y HMS"),
+      tz = "UTC"
+    ))
+    num <- suppressWarnings(as.numeric(x_chr))
+    need_serial <- is.na(dt) & !is.na(num)
+    if(any(need_serial)) dt[need_serial] <- as.Date(num[need_serial], origin = "1899-12-30")
+    as.Date(dt)
+  }
+  label_period <- function(y){
+    dplyr::case_when(
+      y %in% 2012:2014 ~ "2012–2014",
+      y %in% 2015:2017 ~ "2015–2017",
+      y %in% 2018:2020 ~ "2018–2020",
+      y %in% 2021:2023 ~ "2021–2023",
+      y %in% 2024:2025 ~ "2024–2025",
+      TRUE ~ NA_character_
+    )
+  }
+  years_in_period <<- c("2012–2014"=3,"2015–2017"=3,"2018–2020"=3,"2021–2023"=3,"2024–2025"=2)
+  period_order    <<- names(years_in_period)
+
+  acc  <- readr::read_csv("data/accident.csv", show_col_types = FALSE) %>% janitor::clean_names()
+  node <- readr::read_csv("data/node.csv",    show_col_types = FALSE) %>% janitor::clean_names()
+
+  geo4_keep <- c("MELB_URBAN","RURAL_VICTORIA","SMALL_CITIES","TOWNS")
+  node_geo4 <- node %>%
+    mutate(deg_urban_name = toupper(trimws(as.character(deg_urban_name))),
+           geo4 = if_else(deg_urban_name %in% geo4_keep, deg_urban_name, NA_character_)) %>%
+    select(accident_no, geo4)
+
+  acc4 <<- acc %>%
+    mutate(
+      accident_date     = parse_accident_date(accident_date),
+      year              = lubridate::year(accident_date),
+      no_persons_killed = suppressWarnings(as.numeric(no_persons_killed))
+    ) %>%
+    left_join(node_geo4, by = "accident_no") %>%
+    mutate(period = label_period(year)) %>%
+    filter(!is.na(period), !is.na(geo4)) %>%
+    mutate(period = factor(period, levels = period_order),
+           geo4   = factor(geo4,   levels = geo4_keep))
+}
+
+# --- Bucket posted speeds ---
+acc4_speed <- acc4 %>%
+  mutate(
+    speed_numeric = readr::parse_number(as.character(speed_zone)),
+    speed_bucket = case_when(
+      speed_numeric %in% c(10,20,30,40,50,60) ~ "<=60",
+      speed_numeric %in% c(70,80)             ~ "70–80",
+      speed_numeric %in% c(90,100,110,120)    ~ ">=90",
+      TRUE                                     ~ "Unknown"
+    ),
+    speed_bucket = factor(speed_bucket, levels = c("<=60","70–80",">=90","Unknown"))
+  )
+
+# --- Severity per 1,000 by period × Geo4 × speed bucket ---
+speed_sev_geo4 <- acc4_speed %>%
+  filter(speed_bucket != "Unknown") %>%
+  group_by(period, geo4, speed_bucket) %>%
+  summarise(
+    crashes = n(),
+    fatalities = sum(coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  )
+readr::write_csv(speed_sev_geo4, "output/insight_speed_severity_all_periods_geo4.csv")
+
+# --- Exposure (share of crashes) by period × Geo4 × speed bucket ---
+speed_exp_geo4 <- acc4_speed %>%
+  filter(speed_bucket != "Unknown") %>%
+  count(period, geo4, speed_bucket, name = "crashes") %>%
+  group_by(period, geo4) %>%
+  mutate(share = crashes / sum(crashes), share_pct = 100 * share) %>%
+  ungroup()
+readr::write_csv(speed_exp_geo4, "output/insight_speed_exposure_all_periods_geo4.csv")
+
+# --- Join for plotting/reporting ---
+speed_sum_geo4 <- left_join(
+  speed_sev_geo4,
+  speed_exp_geo4 %>% select(period, geo4, speed_bucket, share, share_pct),
+  by = c("period","geo4","speed_bucket")
+) %>%
+  mutate(period = factor(period, levels = period_order))
+readr::write_csv(speed_sum_geo4, "output/insight_speed_summary_all_periods_geo4.csv")
+
+# --- Plots ---
+dodge <- position_dodge2(width = 0.8, preserve = "single")
+
+p_speed_geo4_bars <- ggplot(
+  speed_sum_geo4,
+  aes(x = speed_bucket, y = fatal_per_1000, fill = geo4, group = geo4)
+) +
+  geom_col(width = 0.65, position = dodge, colour = "white", linewidth = 0.2) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Fatalities per 1,000 by posted speed (Geo4) — all periods",
+    x = "Posted speed bucket", y = "Fatalities per 1,000", fill = "Geography"
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave("output/insight_speed_severity_all_periods_geo4.png",
+       p_speed_geo4_bars, width = 12, height = 7, dpi = 150)
+
+p_speed_geo4_scatter <- ggplot(
+  speed_sum_geo4,
+  aes(x = share_pct, y = fatal_per_1000, color = geo4, shape = speed_bucket)
+) +
+  geom_point(size = 3, alpha = 0.9, position = position_jitter(width = 0.25, height = 0)) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Exposure (share %) vs severity (per 1,000) by posted speed (Geo4) — all periods",
+    x = "Share of crashes in bucket (%)", y = "Fatalities per 1,000",
+    color = "Geography", shape = "Speed bucket"
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave("output/insight_speed_exposure_vs_severity_scatter_geo4.png",
+       p_speed_geo4_scatter, width = 12, height = 7, dpi = 150)
+
+message("Geo4 Speed: tables & plots written to /output")
+
+
+
+#Road Geometry
+
+# ============================
+# Geo4 — Road geometry
+# ============================
+
+suppressPackageStartupMessages({
+  library(readr); library(dplyr); library(janitor)
+  library(stringr); library(lubridate); library(ggplot2)
+})
+
+dir.create("output", showWarnings = FALSE)
+
+# --- Rebuild acc4 if missing (safe to leave in) ---
+if (!exists("acc4")) {
+  # helpers
+  parse_accident_date <- function(x_chr){
+    x_chr <- as.character(x_chr)
+    dt <- suppressWarnings(lubridate::parse_date_time(
+      x_chr,
+      orders = c("Y-m-d","d-m-Y","m-d-Y","Y/m/d","d/m/Y","m/d/Y",
+                 "d.m.Y","Y.m.d","Ymd","dmY","mdY",
+                 "Y-m-d HMS","d-m-Y HMS","m-d-Y HMS",
+                 "Y/m/d HMS","d/m/Y HMS","m/d/Y HMS"),
+      tz = "UTC"
+    ))
+    num <- suppressWarnings(as.numeric(x_chr))
+    need_serial <- is.na(dt) & !is.na(num)
+    if(any(need_serial)) dt[need_serial] <- as.Date(num[need_serial], origin = "1899-12-30")
+    as.Date(dt)
+  }
+  label_period <- function(y){
+    dplyr::case_when(
+      y %in% 2012:2014 ~ "2012–2014",
+      y %in% 2015:2017 ~ "2015–2017",
+      y %in% 2018:2020 ~ "2018–2020",
+      y %in% 2021:2023 ~ "2021–2023",
+      y %in% 2024:2025 ~ "2024–2025",
+      TRUE ~ NA_character_
+    )
+  }
+  years_in_period <<- c("2012–2014"=3,"2015–2017"=3,"2018–2020"=3,"2021–2023"=3,"2024–2025"=2)
+  period_order    <<- names(years_in_period)
+
+  acc  <- readr::read_csv("data/accident.csv", show_col_types = FALSE) %>% janitor::clean_names()
+  node <- readr::read_csv("data/node.csv",    show_col_types = FALSE) %>% janitor::clean_names()
+
+  geo4_keep <- c("MELB_URBAN","RURAL_VICTORIA","SMALL_CITIES","TOWNS")
+  node_geo4 <- node %>%
+    mutate(deg_urban_name = toupper(trimws(as.character(deg_urban_name))),
+           geo4 = if_else(deg_urban_name %in% geo4_keep, deg_urban_name, NA_character_)) %>%
+    select(accident_no, geo4)
+
+  acc4 <<- acc %>%
+    mutate(
+      accident_date     = parse_accident_date(accident_date),
+      year              = lubridate::year(accident_date),
+      no_persons_killed = suppressWarnings(as.numeric(no_persons_killed))
+    ) %>%
+    left_join(node_geo4, by = "accident_no") %>%
+    mutate(period = label_period(year)) %>%
+    filter(!is.na(period), !is.na(geo4)) %>%
+    mutate(period = factor(period, levels = period_order),
+           geo4   = factor(geo4,   levels = geo4_keep))
+}
+
+# --- Normalise geometry labels from accident$road_geometry_desc ---
+acc4_geom <- acc4 %>%
+  mutate(
+    geom_raw = toupper(trimws(as.character(road_geometry_desc))),
+    geom_group = case_when(
+      !is.na(geom_raw) & grepl("NOT\\s*AT\\s*INTERSECTION|NO\\s*INTERSECTION|MID[- ]?BLOCK|OPEN\\s*ROAD|NON[- ]?INTERSECTION|MIDBLOCK|MID BLOCK", geom_raw)
+        ~ "Not at intersection",
+      !is.na(geom_raw) & grepl("\\bT[- ]?INTERSECTION\\b|\\bT[- ]?INT\\b|\\bT[- ]?JUNCTION\\b|\\bT JN\\b", geom_raw)
+        ~ "T intersection",
+      !is.na(geom_raw) & grepl("CROSS( |-)?INTERSECTION|CROSS ?ROAD(S)?|FOUR[- ]?WAY|4[- ]?WAY|X[- ]?ROAD|CROSSING\\b", geom_raw)
+        ~ "Cross intersection",
+      !is.na(geom_raw) & grepl("ROUNDABOUT|R'?ABOUT|RAB", geom_raw)
+        ~ "Roundabout",
+      TRUE ~ "Other/Unknown"
+    ),
+    geom_group = factor(geom_group,
+                        levels = c("Not at intersection","Cross intersection","T intersection","Roundabout","Other/Unknown"))
+  )
+
+# --- Severity per 1,000 by period × Geo4 × geometry ---
+geom_sev_geo4 <- acc4_geom %>%
+  group_by(period, geo4, geom_group) %>%
+  summarise(
+    crashes = n(),
+    fatalities = sum(coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  )
+readr::write_csv(geom_sev_geo4, "output/insight_geometry_severity_all_periods_geo4.csv")
+
+# --- Exposure (share of crashes) by period × Geo4 × geometry ---
+geom_exp_geo4 <- acc4_geom %>%
+  count(period, geo4, geom_group, name = "crashes") %>%
+  group_by(period, geo4) %>%
+  mutate(share = crashes / sum(crashes), share_pct = 100 * share) %>%
+  ungroup()
+readr::write_csv(geom_exp_geo4, "output/insight_geometry_exposure_all_periods_geo4.csv")
+
+# --- Join for plotting/reporting ---
+geom_sum_geo4 <- left_join(
+  geom_sev_geo4,
+  geom_exp_geo4 %>% select(period, geo4, geom_group, share, share_pct),
+  by = c("period","geo4","geom_group")
+) %>%
+  mutate(period = factor(period, levels = period_order))
+readr::write_csv(geom_sum_geo4, "output/insight_geometry_summary_all_periods_geo4.csv")
+
+# --- Plots ---
+dodge <- position_dodge2(width = 0.8, preserve = "single")
+
+p_geom_geo4_bars <- ggplot(
+  geom_sum_geo4 %>% filter(geom_group != "Other/Unknown"),
+  aes(x = geom_group, y = fatal_per_1000, fill = geo4, group = geo4)
+) +
+  geom_col(width = 0.65, position = dodge, colour = "white", linewidth = 0.2) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Fatalities per 1,000 by road geometry (Geo4) — all periods",
+    x = "Road geometry", y = "Fatalities per 1,000", fill = "Geography"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+
+ggsave("output/insight_geometry_severity_all_periods_geo4.png",
+       p_geom_geo4_bars, width = 12, height = 7, dpi = 150)
+
+p_geom_geo4_scatter <- ggplot(
+  geom_sum_geo4 %>% filter(geom_group != "Other/Unknown"),
+  aes(x = share_pct, y = fatal_per_1000, color = geo4, shape = geom_group)
+) +
+  geom_point(size = 3, alpha = 0.9, position = position_jitter(width = 0.25, height = 0)) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Exposure (share %) vs severity (per 1,000) by geometry (Geo4) — all periods",
+    x = "Share of crashes in geometry (%)",
+    y = "Fatalities per 1,000",
+    color = "Geography", shape = "Geometry"
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave("output/insight_geometry_exposure_vs_severity_scatter_geo4.png",
+       p_geom_geo4_scatter, width = 12, height = 7, dpi = 150)
+
+message("Geo4 Geometry: tables & plots written to /output")
+
+
+
+#Lighting 
+
+# ============================
+# Geo4 — Lighting (all periods)
+# ============================
+
+suppressPackageStartupMessages({
+  library(readr); library(dplyr); library(janitor)
+  library(stringr); library(lubridate); library(ggplot2)
+})
+
+dir.create("output", showWarnings = FALSE)
+
+# --- Rebuild acc4 if missing (safe to leave in) ---
+if (!exists("acc4")) {
+  # helpers
+  parse_accident_date <- function(x_chr){
+    x_chr <- as.character(x_chr)
+    dt <- suppressWarnings(lubridate::parse_date_time(
+      x_chr,
+      orders = c("Y-m-d","d-m-Y","m-d-Y","Y/m/d","d/m/Y","m/d/Y",
+                 "d.m.Y","Y.m.d","Ymd","dmY","mdY",
+                 "Y-m-d HMS","d-m-Y HMS","m-d-Y HMS",
+                 "Y/m/d HMS","d/m/Y HMS","m/d/Y HMS"),
+      tz = "UTC"
+    ))
+    num <- suppressWarnings(as.numeric(x_chr))
+    need_serial <- is.na(dt) & !is.na(num)
+    if(any(need_serial)) dt[need_serial] <- as.Date(num[need_serial], origin = "1899-12-30")
+    as.Date(dt)
+  }
+  label_period <- function(y){
+    dplyr::case_when(
+      y %in% 2012:2014 ~ "2012–2014",
+      y %in% 2015:2017 ~ "2015–2017",
+      y %in% 2018:2020 ~ "2018–2020",
+      y %in% 2021:2023 ~ "2021–2023",
+      y %in% 2024:2025 ~ "2024–2025",
+      TRUE ~ NA_character_
+    )
+  }
+  years_in_period <<- c("2012–2014"=3,"2015–2017"=3,"2018–2020"=3,"2021–2023"=3,"2024–2025"=2)
+  period_order    <<- names(years_in_period)
+
+  acc  <- readr::read_csv("data/accident.csv", show_col_types = FALSE) %>% janitor::clean_names()
+  node <- readr::read_csv("data/node.csv",    show_col_types = FALSE) %>% janitor::clean_names()
+
+  geo4_keep <- c("MELB_URBAN","RURAL_VICTORIA","SMALL_CITIES","TOWNS")
+  node_geo4 <- node %>%
+    mutate(deg_urban_name = toupper(trimws(as.character(deg_urban_name))),
+           geo4 = if_else(deg_urban_name %in% geo4_keep, deg_urban_name, NA_character_)) %>%
+    select(accident_no, geo4)
+
+  acc4 <<- acc %>%
+    mutate(
+      accident_date     = parse_accident_date(accident_date),
+      year              = lubridate::year(accident_date),
+      no_persons_killed = suppressWarnings(as.numeric(no_persons_killed))
+    ) %>%
+    left_join(node_geo4, by = "accident_no") %>%
+    mutate(period = label_period(year)) %>%
+    filter(!is.na(period), !is.na(geo4)) %>%
+    mutate(period = factor(period, levels = period_order),
+           geo4   = factor(geo4,   levels = geo4_keep))
+}
+
+# --- Normalise lighting labels ---
+normalize_light <- function(x){
+  x_chr <- toupper(trimws(as.character(x)))
+  x_num <- suppressWarnings(readr::parse_number(x_chr))
+  dplyr::case_when(
+    !is.na(x_num) & x_num == 1 ~ "Daylight",
+    !is.na(x_num) & x_num == 2 ~ "Dusk/Dawn",
+    !is.na(x_num) & x_num == 3 ~ "Dark—Lighted",
+    !is.na(x_num) & x_num == 4 ~ "Dark—Unlighted",
+    grepl("\\bDAY(LIGHT)?\\b", x_chr)                              ~ "Daylight",
+    grepl("\\bDUSK|DAWN|TWILIGHT\\b", x_chr)                       ~ "Dusk/Dawn",
+    grepl("DARK.*(LIT|LIGHTED|STREET LIGHT|LAMP|ILLUMIN)", x_chr)  ~ "Dark—Lighted",
+    grepl("DARK.*(UNLIT|UNLIGHTED|NO LIGHT|NO STREET)", x_chr)     ~ "Dark—Unlighted",
+    TRUE ~ "Other/Unknown"
+  )
+}
+
+acc4_light <- acc4 %>%
+  mutate(
+    light_cat = normalize_light(light_condition),
+    light_cat = factor(light_cat, levels = c("Daylight","Dusk/Dawn","Dark—Lighted","Dark—Unlighted","Other/Unknown"))
+  )
+
+# --- Severity per 1,000 by period × Geo4 × lighting ---
+light_sev_geo4 <- acc4_light %>%
+  group_by(period, geo4, light_cat) %>%
+  summarise(
+    crashes = n(),
+    fatalities = sum(coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  )
+readr::write_csv(light_sev_geo4, "output/insight_lighting_severity_all_periods_geo4.csv")
+
+# --- Exposure (share of crashes) by period × Geo4 × lighting ---
+light_exp_geo4 <- acc4_light %>%
+  count(period, geo4, light_cat, name = "crashes") %>%
+  group_by(period, geo4) %>%
+  mutate(share = crashes / sum(crashes), share_pct = 100 * share) %>%
+  ungroup()
+readr::write_csv(light_exp_geo4, "output/insight_lighting_exposure_all_periods_geo4.csv")
+
+# --- Join for plotting/reporting ---
+light_sum_geo4 <- left_join(
+  light_sev_geo4,
+  light_exp_geo4 %>% select(period, geo4, light_cat, share, share_pct),
+  by = c("period","geo4","light_cat")
+) %>%
+  mutate(period = factor(period, levels = period_order))
+readr::write_csv(light_sum_geo4, "output/insight_lighting_summary_all_periods_geo4.csv")
+
+# --- Plots ---
+dodge <- position_dodge2(width = 0.8, preserve = "single")
+
+p_light_geo4_bars <- ggplot(
+  light_sum_geo4 %>% filter(light_cat != "Other/Unknown"),
+  aes(x = light_cat, y = fatal_per_1000, fill = geo4, group = geo4)
+) +
+  geom_col(width = 0.65, position = dodge, colour = "white", linewidth = 0.2) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Fatalities per 1,000 by lighting (Geo4) — all periods",
+    x = "Lighting", y = "Fatalities per 1,000", fill = "Geography"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+
+ggsave("output/insight_lighting_severity_all_periods_geo4.png",
+       p_light_geo4_bars, width = 12, height = 7, dpi = 150)
+
+p_light_geo4_scatter <- ggplot(
+  light_sum_geo4 %>% filter(light_cat != "Other/Unknown"),
+  aes(x = share_pct, y = fatal_per_1000, color = geo4, shape = light_cat)
+) +
+  geom_point(size = 3, alpha = 0.9, position = position_jitter(width = 0.25, height = 0)) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Exposure (share %) vs severity (per 1,000) by lighting (Geo4) — all periods",
+    x = "Share of crashes in lighting category (%)",
+    y = "Fatalities per 1,000",
+    color = "Geography", shape = "Lighting"
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave("output/insight_lighting_exposure_vs_severity_scatter_geo4.png",
+       p_light_geo4_scatter, width = 12, height = 7, dpi = 150)
+
+message("Geo4 Lighting: tables & plots written to /output")
+
+
+
+#Road Surface 
