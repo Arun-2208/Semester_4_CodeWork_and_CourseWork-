@@ -584,3 +584,757 @@ message("Geo4 Lighting: tables & plots written to /output")
 
 
 #Road Surface 
+
+# ============================
+# Geo4 — Road surface (all periods)
+# ============================
+
+suppressPackageStartupMessages({
+  library(readr); library(dplyr); library(janitor)
+  library(stringr); library(lubridate); library(ggplot2)
+})
+
+dir.create("output", showWarnings = FALSE)
+
+# --- Rebuild acc4 if missing (safe to leave in) ---
+if (!exists("acc4")) {
+  # helpers
+  parse_accident_date <- function(x_chr){
+    x_chr <- as.character(x_chr)
+    dt <- suppressWarnings(lubridate::parse_date_time(
+      x_chr,
+      orders = c("Y-m-d","d-m-Y","m-d-Y","Y/m/d","d/m/Y","m/d/Y",
+                 "d.m.Y","Y.m.d","Ymd","dmY","mdY",
+                 "Y-m-d HMS","d-m-Y HMS","m-d-Y HMS",
+                 "Y/m/d HMS","d/m/Y HMS","m/d/Y HMS"),
+      tz = "UTC"
+    ))
+    num <- suppressWarnings(as.numeric(x_chr))
+    need_serial <- is.na(dt) & !is.na(num)
+    if(any(need_serial)) dt[need_serial] <- as.Date(num[need_serial], origin = "1899-12-30")
+    as.Date(dt)
+  }
+  label_period <- function(y){
+    dplyr::case_when(
+      y %in% 2012:2014 ~ "2012–2014",
+      y %in% 2015:2017 ~ "2015–2017",
+      y %in% 2018:2020 ~ "2018–2020",
+      y %in% 2021:2023 ~ "2021–2023",
+      y %in% 2024:2025 ~ "2024–2025",
+      TRUE ~ NA_character_
+    )
+  }
+  years_in_period <<- c("2012–2014"=3,"2015–2017"=3,"2018–2020"=3,"2021–2023"=3,"2024–2025"=2)
+  period_order    <<- names(years_in_period)
+  
+  acc  <- readr::read_csv("data/accident.csv", show_col_types = FALSE) %>% janitor::clean_names()
+  node <- readr::read_csv("data/node.csv",    show_col_types = FALSE) %>% janitor::clean_names()
+  
+  geo4_keep <- c("MELB_URBAN","RURAL_VICTORIA","SMALL_CITIES","TOWNS")
+  node_geo4 <- node %>%
+    mutate(deg_urban_name = toupper(trimws(as.character(deg_urban_name))),
+           geo4 = if_else(deg_urban_name %in% geo4_keep, deg_urban_name, NA_character_)) %>%
+    select(accident_no, geo4)
+  
+  acc4 <<- acc %>%
+    mutate(
+      accident_date     = parse_accident_date(accident_date),
+      year              = lubridate::year(accident_date),
+      no_persons_killed = suppressWarnings(as.numeric(no_persons_killed))
+    ) %>%
+    left_join(node_geo4, by = "accident_no") %>%
+    mutate(period = label_period(year)) %>%
+    filter(!is.na(period), !is.na(geo4)) %>%
+    mutate(period = factor(period, levels = period_order),
+           geo4   = factor(geo4,   levels = geo4_keep))
+}
+
+# --- Find / join road-surface column ---
+find_col <- function(df, patterns){
+  nms <- names(df)
+  hits <- unique(unlist(lapply(patterns, function(p) grep(p, nms, ignore.case = TRUE, value = TRUE))))
+  if(length(hits)) hits[1] else NA_character_
+}
+
+# First, try to find surface in accident.csv (already inside acc4)
+surface_col <- find_col(acc4, c("^road_?surface", "surface_?cond", "surface_?condition", "pavement"))
+
+if (is.na(surface_col)) {
+  # read separate surface table
+  surf_path <- "data/road_surface_cond.csv"
+  if (!file.exists(surf_path)) {
+    warning("No 'road_surface_cond.csv' found; proceeding with surface = Other/Unknown only.")
+    acc4_surface <- acc4 %>% mutate(surface_raw = NA_character_)
+    surface_col <- "surface_raw"
+  } else {
+    surf_lookup <- readr::read_csv(surf_path, show_col_types = FALSE) %>% janitor::clean_names()
+    key_col  <- find_col(surf_lookup, c("^accident_?no$", "^accident$","^crash_?id$","^report_?no$"))
+    surf_val <- find_col(surf_lookup, c("^road_?surface", "surface_?cond", "surface_?condition", "pavement"))
+    if (is.na(key_col) || is.na(surf_val)) {
+      stop("Could not find accident key or surface column in road_surface_cond.csv. ",
+           "Present columns: ", paste(names(surf_lookup), collapse=", "))
+    }
+    surf_joined <- surf_lookup %>%
+      select(accident_no = !!rlang::sym(key_col),
+             surface_raw = !!rlang::sym(surf_val))
+    acc4_surface <- acc4 %>% left_join(surf_joined, by = "accident_no")
+    surface_col <- "surface_raw"
+  }
+} else {
+  acc4_surface <- acc4
+}
+
+# --- Normalise surface labels (numeric codes or free text) ---
+normalize_surface <- function(x){
+  x_chr <- toupper(stringr::str_trim(as.character(x)))
+  x_num <- suppressWarnings(readr::parse_number(x_chr))
+  dplyr::case_when(
+    !is.na(x_num) & x_num == 1 ~ "Dry",
+    !is.na(x_num) & x_num == 2 ~ "Wet",
+    !is.na(x_num) & x_num == 3 ~ "Snow/Ice",
+    !is.na(x_num) & x_num == 4 ~ "Loose/Gravel",
+    !is.na(x_num) & x_num == 5 ~ "Oil/Mud/Debris",
+    !is.na(x_num) & x_num == 6 ~ "Flooded/Water",
+    stringr::str_detect(x_chr, "\\bDRY\\b")                       ~ "Dry",
+    stringr::str_detect(x_chr, "\\bWET\\b|RAIN|DAMP")             ~ "Wet",
+    stringr::str_detect(x_chr, "SNOW|ICE|FROST")                  ~ "Snow/Ice",
+    stringr::str_detect(x_chr, "GRAVEL|LOOSE|UNSEALED")           ~ "Loose/Gravel",
+    stringr::str_detect(x_chr, "OIL|MUD|DEBRIS|SPILL|LEAK")       ~ "Oil/Mud/Debris",
+    stringr::str_detect(x_chr, "FLOOD|WATER OVER|WATERLOG|INUND") ~ "Flooded/Water",
+    TRUE ~ "Other/Unknown"
+  )
+}
+
+acc4_surface <- acc4_surface %>%
+  mutate(
+    surface_cat = normalize_surface(.data[[surface_col]]),
+    surface_cat = factor(surface_cat,
+                         levels = c("Dry","Wet","Loose/Gravel","Snow/Ice","Oil/Mud/Debris","Flooded/Water","Other/Unknown"))
+  )
+
+# --- Severity per 1,000 by period × Geo4 × surface ---
+surf_sev_geo4 <- acc4_surface %>%
+  group_by(period, geo4, surface_cat) %>%
+  summarise(
+    crashes = n(),
+    fatalities = sum(coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  )
+readr::write_csv(surf_sev_geo4, "output/insight_surface_severity_all_periods_geo4.csv")
+
+# --- Exposure (share of crashes) by period × Geo4 × surface ---
+surf_exp_geo4 <- acc4_surface %>%
+  count(period, geo4, surface_cat, name = "crashes") %>%
+  group_by(period, geo4) %>%
+  mutate(share = crashes / sum(crashes), share_pct = 100 * share) %>%
+  ungroup()
+readr::write_csv(surf_exp_geo4, "output/insight_surface_exposure_all_periods_geo4.csv")
+
+# --- Join for plotting/reporting ---
+surf_sum_geo4 <- left_join(
+  surf_sev_geo4,
+  surf_exp_geo4 %>% select(period, geo4, surface_cat, share, share_pct),
+  by = c("period","geo4","surface_cat")
+) %>%
+  mutate(period = factor(period, levels = period_order))
+readr::write_csv(surf_sum_geo4, "output/insight_surface_summary_all_periods_geo4.csv")
+
+# --- Plots ---
+dodge <- position_dodge2(width = 0.8, preserve = "single")
+
+p_surface_geo4_bars <- ggplot(
+  surf_sum_geo4 %>% filter(surface_cat != "Other/Unknown"),
+  aes(x = surface_cat, y = fatal_per_1000, fill = geo4, group = geo4)
+) +
+  geom_col(width = 0.65, position = dodge, colour = "white", linewidth = 0.2) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Fatalities per 1,000 by road surface (Geo4) — all periods",
+    x = "Road surface", y = "Fatalities per 1,000", fill = "Geography"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+
+ggsave("output/insight_surface_severity_all_periods_geo4.png",
+       p_surface_geo4_bars, width = 12, height = 7, dpi = 150)
+
+p_surface_geo4_scatter <- ggplot(
+  surf_sum_geo4 %>% filter(surface_cat != "Other/Unknown"),
+  aes(x = share_pct, y = fatal_per_1000, color = geo4, shape = surface_cat)
+) +
+  geom_point(size = 3, alpha = 0.9, position = position_jitter(width = 0.25, height = 0)) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Exposure (share %) vs severity (per 1,000) by road surface (Geo4) — all periods",
+    x = "Share of crashes in surface (%)",
+    y = "Fatalities per 1,000",
+    color = "Geography", shape = "Surface"
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave("output/insight_surface_exposure_vs_severity_scatter_geo4.png",
+       p_surface_geo4_scatter, width = 12, height = 7, dpi = 150)
+
+message("Geo4 Road surface: tables & plots written to /output")
+
+
+
+#weather and atmospheric conditions
+
+# ============================
+# Geo4 — Weather / Atmospheric conditions (all periods)
+# ============================
+
+suppressPackageStartupMessages({
+  library(readr); library(dplyr); library(janitor)
+  library(stringr); library(lubridate); library(ggplot2)
+})
+
+dir.create("output", showWarnings = FALSE)
+
+# --- Rebuild acc4 if missing (safe to leave in) ---
+if (!exists("acc4")) {
+  # helpers
+  parse_accident_date <- function(x_chr){
+    x_chr <- as.character(x_chr)
+    dt <- suppressWarnings(lubridate::parse_date_time(
+      x_chr,
+      orders = c("Y-m-d","d-m-Y","m-d-Y","Y/m/d","d/m/Y","m/d/Y",
+                 "d.m.Y","Y.m.d","Ymd","dmY","mdY",
+                 "Y-m-d HMS","d-m-Y HMS","m-d-Y HMS",
+                 "Y/m/d HMS","d/m/Y HMS","m/d/Y HMS"),
+      tz = "UTC"
+    ))
+    num <- suppressWarnings(as.numeric(x_chr))
+    need_serial <- is.na(dt) & !is.na(num)
+    if(any(need_serial)) dt[need_serial] <- as.Date(num[need_serial], origin = "1899-12-30")
+    as.Date(dt)
+  }
+  label_period <- function(y){
+    dplyr::case_when(
+      y %in% 2012:2014 ~ "2012–2014",
+      y %in% 2015:2017 ~ "2015–2017",
+      y %in% 2018:2020 ~ "2018–2020",
+      y %in% 2021:2023 ~ "2021–2023",
+      y %in% 2024:2025 ~ "2024–2025",
+      TRUE ~ NA_character_
+    )
+  }
+  years_in_period <<- c("2012–2014"=3,"2015–2017"=3,"2018–2020"=3,"2021–2023"=3,"2024–2025"=2)
+  period_order    <<- names(years_in_period)
+
+  acc  <- readr::read_csv("data/accident.csv", show_col_types = FALSE) %>% janitor::clean_names()
+  node <- readr::read_csv("data/node.csv",    show_col_types = FALSE) %>% janitor::clean_names()
+
+  geo4_keep <- c("MELB_URBAN","RURAL_VICTORIA","SMALL_CITIES","TOWNS")
+  node_geo4 <- node %>%
+    mutate(deg_urban_name = toupper(trimws(as.character(deg_urban_name))),
+           geo4 = if_else(deg_urban_name %in% geo4_keep, deg_urban_name, NA_character_)) %>%
+    select(accident_no, geo4)
+
+  acc4 <<- acc %>%
+    mutate(
+      accident_date     = parse_accident_date(accident_date),
+      year              = lubridate::year(accident_date),
+      no_persons_killed = suppressWarnings(as.numeric(no_persons_killed))
+    ) %>%
+    left_join(node_geo4, by = "accident_no") %>%
+    mutate(period = label_period(year)) %>%
+    filter(!is.na(period), !is.na(geo4)) %>%
+    mutate(period = factor(period, levels = period_order),
+           geo4   = factor(geo4,   levels = geo4_keep))
+}
+
+# --- Find / join weather column (accident.csv or atmospheric_cond.csv) ---
+find_col <- function(df, patterns){
+  nms <- names(df)
+  hits <- unique(unlist(lapply(patterns, function(p) grep(p, nms, ignore.case = TRUE, value = TRUE))))
+  if(length(hits)) hits[1] else NA_character_
+}
+
+weather_col <- find_col(acc4, c("^weather", "atmos", "atmospheric", "meteo", "conditions?$"))
+
+if (is.na(weather_col)) {
+  atm_path <- "data/atmospheric_cond.csv"
+  if (!file.exists(atm_path)) {
+    warning("No 'atmospheric_cond.csv' found; proceeding with weather = Other/Unknown only.")
+    acc4_weather <- acc4 %>% mutate(weather_raw = NA_character_)
+    weather_col <- "weather_raw"
+  } else {
+    atm <- readr::read_csv(atm_path, show_col_types = FALSE) %>% janitor::clean_names()
+    key_col  <- find_col(atm, c("^accident_?no$", "^accident$","^crash_?id$","^report_?no$"))
+    w_val    <- find_col(atm, c("^weather", "atmos", "atmospheric", "meteo", "conditions?$"))
+    if (is.na(key_col) || is.na(w_val)) {
+      stop("Could not find accident key or weather column in atmospheric_cond.csv. ",
+           "Present columns: ", paste(names(atm), collapse=", "))
+    }
+    atm_joined <- atm %>%
+      select(accident_no = !!rlang::sym(key_col),
+             weather_raw = !!rlang::sym(w_val))
+    acc4_weather <- acc4 %>% left_join(atm_joined, by = "accident_no")
+    weather_col <- "weather_raw"
+  }
+} else {
+  acc4_weather <- acc4
+}
+
+# --- Normalise weather labels (numeric codes or free text) ---
+normalize_weather <- function(x){
+  x_chr <- toupper(stringr::str_trim(as.character(x)))
+  x_num <- suppressWarnings(readr::parse_number(x_chr))
+  dplyr::case_when(
+    # Common numeric codes (adjust if your codebook is different)
+    !is.na(x_num) & x_num == 1 ~ "Fine/Clear",
+    !is.na(x_num) & x_num == 2 ~ "Raining",
+    !is.na(x_num) & x_num == 3 ~ "Fog/Smoke",
+    !is.na(x_num) & x_num == 4 ~ "Snow/Hail",
+    !is.na(x_num) & x_num == 5 ~ "Windy",
+    !is.na(x_num) & x_num == 6 ~ "Dust",
+    # Text variants
+    stringr::str_detect(x_chr, "FINE|CLEAR|SUNNY|NO PRECIP|NO RAIN") ~ "Fine/Clear",
+    stringr::str_detect(x_chr, "RAIN|WET\\s*WEATHER|SHOWERS|DRIZZLE") ~ "Raining",
+    stringr::str_detect(x_chr, "FOG|MIST|SMOKE|HAZE")                 ~ "Fog/Smoke",
+    stringr::str_detect(x_chr, "SNOW|HAIL|SLEET")                      ~ "Snow/Hail",
+    stringr::str_detect(x_chr, "WIND|GUST|GALE")                       ~ "Windy",
+    stringr::str_detect(x_chr, "DUST|SAND|ASH")                        ~ "Dust",
+    TRUE ~ "Other/Unknown"
+  )
+}
+
+acc4_weather <- acc4_weather %>%
+  mutate(
+    weather_cat = normalize_weather(.data[[weather_col]]),
+    weather_cat = factor(weather_cat,
+      levels = c("Fine/Clear","Raining","Fog/Smoke","Snow/Hail","Windy","Dust","Other/Unknown"))
+  )
+
+# --- Severity per 1,000 by period × Geo4 × weather ---
+weather_sev_geo4 <- acc4_weather %>%
+  group_by(period, geo4, weather_cat) %>%
+  summarise(
+    crashes = n(),
+    fatalities = sum(coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  )
+readr::write_csv(weather_sev_geo4, "output/insight_weather_severity_all_periods_geo4.csv")
+
+# --- Exposure (share of crashes) by period × Geo4 × weather ---
+weather_exp_geo4 <- acc4_weather %>%
+  count(period, geo4, weather_cat, name = "crashes") %>%
+  group_by(period, geo4) %>%
+  mutate(share = crashes / sum(crashes), share_pct = 100 * share) %>%
+  ungroup()
+readr::write_csv(weather_exp_geo4, "output/insight_weather_exposure_all_periods_geo4.csv")
+
+# --- Join for plotting/reporting ---
+weather_sum_geo4 <- left_join(
+  weather_sev_geo4,
+  weather_exp_geo4 %>% select(period, geo4, weather_cat, share, share_pct),
+  by = c("period","geo4","weather_cat")
+) %>%
+  mutate(period = factor(period, levels = period_order))
+readr::write_csv(weather_sum_geo4, "output/insight_weather_summary_all_periods_geo4.csv")
+
+# --- Plots ---
+dodge <- position_dodge2(width = 0.8, preserve = "single")
+
+p_weather_geo4_bars <- ggplot(
+  weather_sum_geo4 %>% filter(weather_cat != "Other/Unknown"),
+  aes(x = weather_cat, y = fatal_per_1000, fill = geo4, group = geo4)
+) +
+  geom_col(width = 0.65, position = dodge, colour = "white", linewidth = 0.2) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Fatalities per 1,000 by weather (Geo4) — all periods",
+    x = "Weather / Atmospheric condition", y = "Fatalities per 1,000", fill = "Geography"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+
+ggsave("output/insight_weather_severity_all_periods_geo4.png",
+       p_weather_geo4_bars, width = 12, height = 7, dpi = 150)
+
+p_weather_geo4_scatter <- ggplot(
+  weather_sum_geo4 %>% filter(weather_cat != "Other/Unknown"),
+  aes(x = share_pct, y = fatal_per_1000, color = geo4, shape = weather_cat)
+) +
+  geom_point(size = 3, alpha = 0.9, position = position_jitter(width = 0.25, height = 0)) +
+  facet_wrap(~ period, ncol = 3) +
+  labs(
+    title = "Exposure (share %) vs severity (per 1,000) by weather (Geo4) — all periods",
+    x = "Share of crashes in weather category (%)",
+    y = "Fatalities per 1,000",
+    color = "Geography", shape = "Weather"
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave("output/insight_weather_exposure_vs_severity_scatter_geo4.png",
+       p_weather_geo4_scatter, width = 12, height = 7, dpi = 150)
+
+message("Geo4 Weather: tables & plots written to /output")
+
+
+A) Motorcycles × Speed × Geometry — with “share vs fatality rate” plot
+# ---- Preconditions ----
+if (!exists("acc4")) stop("acc4 not found. Run your Geo4 baseline setup first.")
+if (!exists("vehicle")) {
+  vehicle <- readr::read_csv("data/vehicle.csv", show_col_types = FALSE) %>% janitor::clean_names()
+}
+
+period_order <- if (is.factor(acc4$period)) levels(acc4$period) else sort(unique(acc4$period))
+geo4_keep    <- if (is.factor(acc4$geo4))   levels(acc4$geo4)   else sort(unique(acc4$geo4))
+
+# Ensure speed & geometry bins exist (no-op if already present)
+if (!"speed_bucket" %in% names(acc4)) {
+  acc4 <- acc4 %>%
+    dplyr::mutate(
+      speed_numeric = readr::parse_number(as.character(speed_zone)),
+      speed_bucket = dplyr::case_when(
+        speed_numeric %in% c(10,20,30,40,50,60) ~ "<=60",
+        speed_numeric %in% c(70,80)             ~ "70–80",
+        speed_numeric %in% c(90,100,110,120)    ~ ">=90",
+        TRUE                                    ~ "Unknown"
+      ),
+      speed_bucket = factor(speed_bucket, levels = c("<=60","70–80",">=90","Unknown"))
+    )
+}
+if (!"geom_group" %in% names(acc4)) {
+  acc4 <- acc4 %>%
+    dplyr::mutate(
+      geom_raw = toupper(trimws(as.character(road_geometry_desc))),
+      geom_group = dplyr::case_when(
+        !is.na(geom_raw) & grepl("NOT\\s*AT\\s*INTERSECTION|NO\\s*INTERSECTION|MID[- ]?BLOCK|OPEN\\s*ROAD|NON[- ]?INTERSECTION|MIDBLOCK|MID BLOCK", geom_raw)
+          ~ "Not at intersection",
+        !is.na(geom_raw) & grepl("\\bT[- ]?INTERSECTION\\b|\\bT[- ]?INT\\b|\\bT[- ]?JUNCTION\\b|\\bT JN\\b", geom_raw)
+          ~ "T intersection",
+        !is.na(geom_raw) & grepl("CROSS( |-)?INTERSECTION|CROSS ?ROAD(S)?|FOUR[- ]?WAY|4[- ]?WAY|X[- ]?ROAD|CROSSING\\b", geom_raw)
+          ~ "Cross intersection",
+        !is.na(geom_raw) & grepl("ROUNDABOUT|R'?ABOUT|RAB", geom_raw)
+          ~ "Roundabout",
+        TRUE ~ "Other/Unknown"
+      ),
+      geom_group = factor(geom_group,
+        levels = c("Not at intersection","Cross intersection","T intersection","Roundabout","Other/Unknown"))
+    )
+}
+
+# Motorcycle detection (robust to text/numeric)
+veh_norm <- vehicle %>%
+  dplyr::mutate(
+    veh_type_raw = toupper(trimws(as.character(vehicle_type))),
+    veh_type_num = suppressWarnings(readr::parse_number(as.character(vehicle_type))),
+    is_motorcycle = dplyr::case_when(
+      !is.na(veh_type_num) & veh_type_num %in% c(6,7,8,9) ~ TRUE,
+      grepl("MOTORCYCLE|MOTOR CYCLE|MOTORBIKE|MOTOR BIKE|SCOOTER|MOPED|\\bBIKE\\b", veh_type_raw) ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) %>%
+  dplyr::group_by(accident_no) %>%
+  dplyr::summarise(motorcycle_involved = any(is_motorcycle, na.rm = TRUE), .groups = "drop")
+
+acc4_mc <- acc4 %>%
+  dplyr::left_join(veh_norm, by = "accident_no") %>%
+  dplyr::mutate(motorcycle_involved = dplyr::coalesce(motorcycle_involved, FALSE),
+                mc_group = ifelse(motorcycle_involved, "Motorcycle-involved", "Non-motorcycle"))
+
+# Filter to usable bins for the speed×geometry analysis
+acc4_mc_f <- acc4_mc %>%
+  dplyr::filter(speed_bucket != "Unknown", geom_group != "Other/Unknown")
+
+# --- Existing outputs (unchanged) ---
+mc_sev <- acc4_mc_f %>%
+  dplyr::group_by(period, geo4, mc_group, speed_bucket, geom_group) %>%
+  dplyr::summarise(
+    crashes = dplyr::n(),
+    fatalities = sum(dplyr::coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  )
+mc_exp <- acc4_mc_f %>%
+  dplyr::count(period, geo4, mc_group, speed_bucket, geom_group, name = "crashes") %>%
+  dplyr::group_by(period, geo4, mc_group) %>%
+  dplyr::mutate(share = crashes / sum(crashes), share_pct = 100 * share) %>%
+  dplyr::ungroup()
+mc_sum <- dplyr::left_join(
+  mc_sev,
+  mc_exp %>% dplyr::select(period, geo4, mc_group, speed_bucket, geom_group, share, share_pct),
+  by = c("period","geo4","mc_group","speed_bucket","geom_group")
+) %>%
+  dplyr::mutate(period = factor(period, levels = period_order),
+                geo4   = factor(geo4,   levels = geo4_keep))
+
+readr::write_csv(mc_sev, "output/mc_speed_geom_severity_geo4.csv")
+readr::write_csv(mc_exp, "output/mc_speed_geom_exposure_geo4.csv")
+readr::write_csv(mc_sum, "output/mc_speed_geom_summary_geo4.csv")
+
+# Plot (existing): bars by speed (grouped by motorcycle involvement), faceted by Geo4×Period
+dodge <- position_dodge2(width = 0.8, preserve = "single")
+p_mc_bars <- ggplot(
+  mc_sum %>% dplyr::filter(geom_group %in% c("Not at intersection","Cross intersection","T intersection")),
+  aes(x = speed_bucket, y = fatal_per_1000, fill = mc_group, group = mc_group)
+) +
+  geom_col(width = 0.65, position = dodge, colour = "white", linewidth = 0.2) +
+  facet_grid(geo4 ~ period) +
+  labs(title = "Fatalities per 1,000 — Motorcycle vs Non-motorcycle by speed & geometry",
+       subtitle = "Rows=Geo4, Cols=Period; grouped by Motorcycle involvement",
+       x = "Posted speed bucket", y = "Fatalities per 1,000", fill = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+ggsave("output/mc_speed_geom_fatal_per_1000_geo4.png", p_mc_bars, width = 14, height = 8, dpi = 150)
+
+# Optional scatter (existing)
+p_mc_scatter <- ggplot(
+  mc_sum %>% dplyr::filter(geom_group %in% c("Not at intersection","Cross intersection","T intersection")),
+  aes(x = share_pct, y = fatal_per_1000, color = mc_group, shape = speed_bucket)
+) +
+  geom_point(size = 2.8, alpha = 0.9) +
+  facet_grid(geo4 ~ period) +
+  labs(title = "Exposure vs severity — Motorcycle vs Non-motorcycle",
+       x = "Share of crashes in combo (%)", y = "Fatalities per 1,000",
+       color = NULL, shape = "Speed") +
+  theme_minimal(base_size = 12)
+ggsave("output/mc_speed_geom_exposure_vs_severity_geo4.png", p_mc_scatter, width = 14, height = 8, dpi = 150)
+
+# --- NEW: Share-of-crashes vs fatality rate (rolled up per group) ---
+# Summarise to one point per (period × Geo4 × mc_group):
+mc_group_overall <- acc4_mc %>%
+  dplyr::group_by(period, geo4, mc_group) %>%
+  dplyr::summarise(
+    crashes    = dplyr::n(),
+    fatalities = sum(dplyr::coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  ) %>%
+  dplyr::group_by(period, geo4) %>%
+  dplyr::mutate(
+    share       = crashes / sum(crashes),
+    share_pct   = 100 * share,
+    fatal_share = fatalities / sum(fatalities),
+    fatal_share_pct = 100 * fatal_share
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(period = factor(period, levels = period_order),
+                geo4   = factor(geo4,   levels = geo4_keep))
+
+readr::write_csv(mc_group_overall, "output/mc_overall_share_vs_fatal_geo4.csv")
+
+# Plot: Share of crashes (%) on X vs Fatalities per 1,000 on Y
+# Label each point with its share of fatalities (%)
+p_mc_share_rate <- ggplot(
+  mc_group_overall,
+  aes(x = share_pct, y = fatal_per_1000, color = mc_group)
+) +
+  geom_point(size = 3, alpha = 0.9) +
+  geom_text(aes(label = paste0(round(fatal_share_pct, 0), "% of fatalities")),
+            vjust = -0.7, size = 3) +
+  facet_grid(geo4 ~ period) +
+  labs(
+    title = "Motorcycle exposure vs fatality rate",
+    subtitle = "Each point = mc_group in a Geo4 × Period; label shows share of fatalities",
+    x = "Share of crashes (%)", y = "Fatalities per 1,000 crashes", color = NULL
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave("output/mc_share_vs_fatal_rate_geo4.png", p_mc_share_rate, width = 14, height = 8, dpi = 150)
+
+
+
+
+# Heavy vechicle into geometry 
+# ---- Preconditions ----
+if (!exists("acc4")) stop("acc4 not found. Run your Geo4 baseline setup first.")
+if (!exists("vehicle")) {
+  vehicle <- readr::read_csv("data/vehicle.csv", show_col_types = FALSE) %>% janitor::clean_names()
+}
+period_order <- if (is.factor(acc4$period)) levels(acc4$period) else sort(unique(acc4$period))
+geo4_keep    <- if (is.factor(acc4$geo4))   levels(acc4$geo4)   else sort(unique(acc4$geo4))
+
+# Ensure geometry exists (no-op if already present)
+if (!"geom_group" %in% names(acc4)) {
+  acc4 <- acc4 %>%
+    dplyr::mutate(
+      geom_raw = toupper(trimws(as.character(road_geometry_desc))),
+      geom_group = dplyr::case_when(
+        !is.na(geom_raw) & grepl("NOT\\s*AT\\s*INTERSECTION|NO\\s*INTERSECTION|MID[- ]?BLOCK|OPEN\\s*ROAD|NON[- ]?INTERSECTION|MIDBLOCK|MID BLOCK", geom_raw)
+          ~ "Not at intersection",
+        !is.na(geom_raw) & grepl("\\bT[- ]?INTERSECTION\\b|\\bT[- ]?INT\\b|\\bT[- ]?JUNCTION\\b|\\bT JN\\b", geom_raw)
+          ~ "T intersection",
+        !is.na(geom_raw) & grepl("CROSS( |-)?INTERSECTION|CROSS ?ROAD(S)?|FOUR[- ]?WAY|4[- ]?WAY|X[- ]?ROAD|CROSSING\\b", geom_raw)
+          ~ "Cross intersection",
+        !is.na(geom_raw) & grepl("ROUNDABOUT|R'?ABOUT|RAB", geom_raw)
+          ~ "Roundabout",
+        TRUE ~ "Other/Unknown"
+      ),
+      geom_group = factor(geom_group,
+        levels = c("Not at intersection","Cross intersection","T intersection","Roundabout","Other/Unknown"))
+    )
+}
+
+# Robust heavy-vehicle flag (no assumptions about columns)
+
+
+# ---- Preconditions ----
+if (!exists("acc4")) stop("acc4 not found. Run your Geo4 baseline setup first.")
+if (!exists("vehicle")) {
+  vehicle <- readr::read_csv("data/vehicle.csv", show_col_types = FALSE) %>% janitor::clean_names()
+}
+period_order <- if (is.factor(acc4$period)) levels(acc4$period) else sort(unique(acc4$period))
+geo4_keep    <- if (is.factor(acc4$geo4))   levels(acc4$geo4)   else sort(unique(acc4$geo4))
+
+# Ensure geometry exists (no-op if already present)
+if (!"geom_group" %in% names(acc4)) {
+  acc4 <- acc4 %>%
+    dplyr::mutate(
+      geom_raw = toupper(trimws(as.character(road_geometry_desc))),
+      geom_group = dplyr::case_when(
+        !is.na(geom_raw) & grepl("NOT\\s*AT\\s*INTERSECTION|NO\\s*INTERSECTION|MID[- ]?BLOCK|OPEN\\s*ROAD|NON[- ]?INTERSECTION|MIDBLOCK|MID BLOCK", geom_raw)
+        ~ "Not at intersection",
+        !is.na(geom_raw) & grepl("\\bT[- ]?INTERSECTION\\b|\\bT[- ]?INT\\b|\\bT[- ]?JUNCTION\\b|\\bT JN\\b", geom_raw)
+        ~ "T intersection",
+        !is.na(geom_raw) & grepl("CROSS( |-)?INTERSECTION|CROSS ?ROAD(S)?|FOUR[- ]?WAY|4[- ]?WAY|X[- ]?ROAD|CROSSING\\b", geom_raw)
+        ~ "Cross intersection",
+        !is.na(geom_raw) & grepl("ROUNDABOUT|R'?ABOUT|RAB", geom_raw)
+        ~ "Roundabout",
+        TRUE ~ "Other/Unknown"
+      ),
+      geom_group = factor(geom_group,
+                          levels = c("Not at intersection","Cross intersection","T intersection","Roundabout","Other/Unknown"))
+    )
+}
+
+# Robust heavy-vehicle flag (no assumptions about columns)
+first_col <- function(df, candidates) { hits <- intersect(candidates, names(df)); if (length(hits)) hits[1] else NA_character_ }
+key_col   <- first_col(vehicle, c("accident_no","accident","crash_id","report_no"))
+vtype_col <- first_col(vehicle, c("vehicle_type","vehicle_type_desc","veh_type","veh_type_desc","type","type_desc","veh_body","body_type"))
+gvm_col   <- first_col(vehicle, c("gvm","gross_vehicle_mass","gvm_tonnes","mass_kg","mass"))
+axle_col  <- first_col(vehicle, c("num_axles","axles","axle_count"))
+if (is.na(key_col)) stop("Couldn't find a crash key in vehicle.csv (need accident_no/crash_id/report_no).")
+
+n <- nrow(vehicle)
+accident_no <- vehicle[[key_col]]
+vtype_raw <- if (!is.na(vtype_col)) toupper(trimws(as.character(vehicle[[vtype_col]]))) else rep(NA_character_, n)
+vtype_num <- if (!is.na(vtype_col)) readr::parse_number(as.character(vehicle[[vtype_col]])) else rep(NA_real_, n)
+gvm_num   <- if (!is.na(gvm_col))   readr::parse_number(as.character(vehicle[[gvm_col]]))   else rep(NA_real_, n)
+axles_num <- if (!is.na(axle_col))  readr::parse_number(as.character(vehicle[[axle_col]]))   else rep(NA_real_, n)
+
+veh_hvy <- tibble::tibble(
+  accident_no = accident_no,
+  vtype_raw   = vtype_raw,
+  vtype_num   = vtype_num,
+  gvm_num     = gvm_num,
+  axles_num   = axles_num
+) %>%
+  dplyr::mutate(
+    heavy_by_text = !is.na(vtype_raw) & grepl(
+      "HEAVY|TRUCK|LORRY|SEMI|ARTIC|PRIME MOVER|B-?DOUBLE|ROAD TRAIN|RIGID|TIPPER|FLATBED|PANTECH|TOW|BUS|COACH",
+      vtype_raw
+    ),
+    heavy_by_code = !is.na(vtype_num) & vtype_num %in% c(11,12,13,14,15,16,17,18,19,20),
+    heavy_by_gvm  = !is.na(gvm_num)   & (gvm_num >= 4500 | gvm_num >= 4.5),
+    heavy_by_axle = !is.na(axles_num) & axles_num >= 3,
+    is_heavy      = heavy_by_text | heavy_by_code | heavy_by_gvm | heavy_by_axle
+  ) %>%
+  dplyr::group_by(accident_no) %>%
+  dplyr::summarise(heavy_involved = any(is_heavy, na.rm = TRUE), .groups = "drop")
+
+acc4_hv <- acc4 %>%
+  dplyr::left_join(veh_hvy, by = "accident_no") %>%
+  dplyr::mutate(heavy_involved = dplyr::coalesce(heavy_involved, FALSE),
+                hv_group = ifelse(heavy_involved, "Heavy-vehicle involved", "Other-vehicle"))
+
+# --- Existing outputs (unchanged) ---
+hv_sev <- acc4_hv %>%
+  dplyr::group_by(period, geo4, hv_group, geom_group) %>%
+  dplyr::summarise(
+    crashes = dplyr::n(),
+    fatalities = sum(dplyr::coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  ) %>%
+  dplyr::mutate(period = factor(period, levels = period_order),
+                geo4   = factor(geo4,   levels = geo4_keep))
+
+hv_exp <- acc4_hv %>%
+  dplyr::count(period, geo4, hv_group, geom_group, name = "crashes") %>%
+  dplyr::group_by(period, geo4, hv_group) %>%
+  dplyr::mutate(share = crashes / sum(crashes), share_pct = 100 * share) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(period = factor(period, levels = period_order),
+                geo4   = factor(geo4,   levels = geo4_keep))
+
+hv_sum <- hv_sev %>%
+  dplyr::left_join(hv_exp %>% dplyr::select(period, geo4, hv_group, geom_group, share, share_pct),
+                   by = c("period","geo4","hv_group","geom_group"))
+
+readr::write_csv(hv_sev, "output/hv_geom_severity_geo4.csv")
+readr::write_csv(hv_exp, "output/hv_geom_exposure_geo4.csv")
+readr::write_csv(hv_sum, "output/hv_geom_summary_geo4.csv")
+
+# Plots (existing)
+p_hv_bars <- ggplot(
+  hv_sum %>% dplyr::filter(geom_group != "Other/Unknown"),
+  aes(y = geom_group, x = fatal_per_1000, fill = hv_group)
+) +
+  geom_col(position = position_dodge(width = 0.8), colour = "white", linewidth = 0.2) +
+  facet_grid(geo4 ~ period) +
+  labs(title = "Fatalities per 1,000 — Heavy-vehicle vs Other by geometry",
+       subtitle = "Rows = Geo4, Columns = Period",
+       x = "Fatalities per 1,000 crashes", y = "Road geometry", fill = NULL) +
+  theme_minimal(base_size = 12)
+ggsave("output/hv_geometry_fatal_per_1000_geo4.png", p_hv_bars, width = 14, height = 8, dpi = 150)
+
+p_hv_bars_share <- ggplot(
+  hv_sum %>% dplyr::filter(geom_group != "Other/Unknown"),
+  aes(y = geom_group, x = fatal_per_1000, fill = hv_group)
+) +
+  geom_col(position = position_dodge(width = 0.8), colour = "white", linewidth = 0.2) +
+  geom_text(aes(label = paste0(round(share_pct,1), "%")),
+            position = position_dodge(width = 0.8),
+            hjust = -0.1, size = 3) +
+  facet_grid(geo4 ~ period) +
+  labs(title = "Heavy-vehicle vs Other by geometry — fatal/1,000 with share labels",
+       x = "Fatalities per 1,000 (labels = share of crashes %)", y = "Road geometry", fill = NULL) +
+  coord_cartesian(xlim = c(0, max(hv_sum$fatal_per_1000, na.rm = TRUE) * 1.15)) +
+  theme_minimal(base_size = 12)
+ggsave("output/hv_geometry_fatal_with_share_geo4.png", p_hv_bars_share, width = 14, height = 8, dpi = 150)
+
+# --- NEW: Share-of-crashes vs fatality rate (rolled up per group) ---
+hv_group_overall <- acc4_hv %>%
+  dplyr::group_by(period, geo4, hv_group) %>%
+  dplyr::summarise(
+    crashes    = dplyr::n(),
+    fatalities = sum(dplyr::coalesce(no_persons_killed, 0), na.rm = TRUE),
+    fatal_per_1000 = 1000 * fatalities / crashes,
+    .groups = "drop"
+  ) %>%
+  dplyr::group_by(period, geo4) %>%
+  dplyr::mutate(
+    share       = crashes / sum(crashes),
+    share_pct   = 100 * share,
+    fatal_share = fatalities / sum(fatalities),
+    fatal_share_pct = 100 * fatal_share
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(period = factor(period, levels = period_order),
+                geo4   = factor(geo4,   levels = geo4_keep))
+
+readr::write_csv(hv_group_overall, "output/hv_overall_share_vs_fatal_geo4.csv")
+
+p_hv_share_rate <- ggplot(
+  hv_group_overall,
+  aes(x = share_pct, y = fatal_per_1000, color = hv_group)
+) +
+  geom_point(size = 3, alpha = 0.9) +
+  geom_text(aes(label = paste0(round(fatal_share_pct, 0), "% of fatalities")),
+            vjust = -0.7, size = 3) +
+  facet_grid(geo4 ~ period) +
+  labs(
+    title = "Heavy-vehicle exposure vs fatality rate",
+    subtitle = "Each point = hv_group in a Geo4 × Period; label shows share of fatalities",
+    x = "Share of crashes (%)", y = "Fatalities per 1,000 crashes", color = NULL
+  ) +
+  theme_minimal(base_size = 12)
+
+ggsave("output/hv_share_vs_fatal_rate_geo4.png", p_hv_share_rate, width = 14, height = 8, dpi = 150)

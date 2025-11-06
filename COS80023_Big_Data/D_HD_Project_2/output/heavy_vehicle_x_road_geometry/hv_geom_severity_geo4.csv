@@ -1,0 +1,158 @@
+period,geo4,hv_group,geom_group,crashes,fatalities,fatal_per_1000
+2012–2014,MELB_URBAN,Heavy-vehicle involved,Not at intersection,1482,9,6.0728744939271255
+2012–2014,MELB_URBAN,Heavy-vehicle involved,Cross intersection,1167,4,3.427592116538132
+2012–2014,MELB_URBAN,Heavy-vehicle involved,T intersection,1460,2,1.36986301369863
+2012–2014,MELB_URBAN,Heavy-vehicle involved,Other/Unknown,116,1,8.620689655172415
+2012–2014,MELB_URBAN,Other-vehicle,Not at intersection,9488,137,14.43929173693086
+2012–2014,MELB_URBAN,Other-vehicle,Cross intersection,6058,44,7.2631231429514695
+2012–2014,MELB_URBAN,Other-vehicle,T intersection,6913,75,10.849124837263128
+2012–2014,MELB_URBAN,Other-vehicle,Other/Unknown,719,6,8.344923504867872
+2012–2014,RURAL_VICTORIA,Heavy-vehicle involved,Not at intersection,209,14,66.98564593301435
+2012–2014,RURAL_VICTORIA,Heavy-vehicle involved,Cross intersection,38,3,78.94736842105263
+2012–2014,RURAL_VICTORIA,Heavy-vehicle involved,T intersection,46,1,21.73913043478261
+2012–2014,RURAL_VICTORIA,Heavy-vehicle involved,Other/Unknown,5,1,200
+2012–2014,RURAL_VICTORIA,Other-vehicle,Not at intersection,6442,320,49.674014281279106
+2012–2014,RURAL_VICTORIA,Other-vehicle,Cross intersection,818,37,45.23227383863081
+2012–2014,RURAL_VICTORIA,Other-vehicle,T intersection,1220,37,30.327868852459016
+2012–2014,RURAL_VICTORIA,Other-vehicle,Other/Unknown,138,2,14.492753623188406
+2012–2014,SMALL_CITIES,Heavy-vehicle involved,Not at intersection,71,2,28.169014084507044
+2012–2014,SMALL_CITIES,Heavy-vehicle involved,Cross intersection,102,0,0
+2012–2014,SMALL_CITIES,Heavy-vehicle involved,T intersection,84,0,0
+2012–2014,SMALL_CITIES,Heavy-vehicle involved,Other/Unknown,1,0,0
+2012–2014,SMALL_CITIES,Other-vehicle,Not at intersection,740,15,20.27027027027027
+2012–2014,SMALL_CITIES,Other-vehicle,Cross intersection,606,3,4.9504950495049505
+2012–2014,SMALL_CITIES,Other-vehicle,T intersection,489,3,6.134969325153374
+2012–2014,SMALL_CITIES,Other-vehicle,Other/Unknown,34,0,0
+2012–2014,TOWNS,Heavy-vehicle involved,Not at intersection,58,1,17.24137931034483
+2012–2014,TOWNS,Heavy-vehicle involved,Cross intersection,51,1,19.607843137254903
+2012–2014,TOWNS,Heavy-vehicle involved,T intersection,23,0,0
+2012–2014,TOWNS,Heavy-vehicle involved,Other/Unknown,4,0,0
+2012–2014,TOWNS,Other-vehicle,Not at intersection,532,20,37.59398496240601
+2012–2014,TOWNS,Other-vehicle,Cross intersection,321,3,9.345794392523365
+2012–2014,TOWNS,Other-vehicle,T intersection,291,6,20.61855670103093
+2012–2014,TOWNS,Other-vehicle,Other/Unknown,20,0,0
+2015–2017,MELB_URBAN,Heavy-vehicle involved,Not at intersection,1592,13,8.165829145728644
+2015–2017,MELB_URBAN,Heavy-vehicle involved,Cross intersection,1113,5,4.492362982929021
+2015–2017,MELB_URBAN,Heavy-vehicle involved,T intersection,1204,5,4.152823920265781
+2015–2017,MELB_URBAN,Heavy-vehicle involved,Other/Unknown,112,1,8.928571428571429
+2015–2017,MELB_URBAN,Other-vehicle,Not at intersection,11308,150,13.264945171559958
+2015–2017,MELB_URBAN,Other-vehicle,Cross intersection,5743,46,8.009751001218875
+2015–2017,MELB_URBAN,Other-vehicle,T intersection,6335,61,9.62904498816101
+2015–2017,MELB_URBAN,Other-vehicle,Other/Unknown,827,5,6.045949214026602
+2015–2017,RURAL_VICTORIA,Heavy-vehicle involved,Not at intersection,193,12,62.17616580310881
+2015–2017,RURAL_VICTORIA,Heavy-vehicle involved,Cross intersection,33,0,0
+2015–2017,RURAL_VICTORIA,Heavy-vehicle involved,T intersection,48,3,62.5
+2015–2017,RURAL_VICTORIA,Heavy-vehicle involved,Other/Unknown,5,0,0
+2015–2017,RURAL_VICTORIA,Other-vehicle,Not at intersection,7418,347,46.77810730655163
+2015–2017,RURAL_VICTORIA,Other-vehicle,Cross intersection,836,48,57.41626794258373
+2015–2017,RURAL_VICTORIA,Other-vehicle,T intersection,1255,33,26.294820717131476
+2015–2017,RURAL_VICTORIA,Other-vehicle,Other/Unknown,168,4,23.80952380952381
+2015–2017,SMALL_CITIES,Heavy-vehicle involved,Not at intersection,88,1,11.363636363636363
+2015–2017,SMALL_CITIES,Heavy-vehicle involved,Cross intersection,69,0,0
+2015–2017,SMALL_CITIES,Heavy-vehicle involved,T intersection,48,0,0
+2015–2017,SMALL_CITIES,Heavy-vehicle involved,Other/Unknown,6,0,0
+2015–2017,SMALL_CITIES,Other-vehicle,Not at intersection,905,15,16.574585635359117
+2015–2017,SMALL_CITIES,Other-vehicle,Cross intersection,665,10,15.037593984962406
+2015–2017,SMALL_CITIES,Other-vehicle,T intersection,487,2,4.1067761806981515
+2015–2017,SMALL_CITIES,Other-vehicle,Other/Unknown,69,1,14.492753623188406
+2015–2017,TOWNS,Heavy-vehicle involved,Not at intersection,58,2,34.48275862068966
+2015–2017,TOWNS,Heavy-vehicle involved,Cross intersection,26,1,38.46153846153846
+2015–2017,TOWNS,Heavy-vehicle involved,T intersection,32,0,0
+2015–2017,TOWNS,Heavy-vehicle involved,Other/Unknown,7,0,0
+2015–2017,TOWNS,Other-vehicle,Not at intersection,592,13,21.95945945945946
+2015–2017,TOWNS,Other-vehicle,Cross intersection,398,2,5.025125628140704
+2015–2017,TOWNS,Other-vehicle,T intersection,265,1,3.7735849056603774
+2015–2017,TOWNS,Other-vehicle,Other/Unknown,19,2,105.26315789473684
+2018–2020,MELB_URBAN,Heavy-vehicle involved,Not at intersection,1524,10,6.561679790026247
+2018–2020,MELB_URBAN,Heavy-vehicle involved,Cross intersection,996,4,4.016064257028113
+2018–2020,MELB_URBAN,Heavy-vehicle involved,T intersection,1072,7,6.529850746268656
+2018–2020,MELB_URBAN,Heavy-vehicle involved,Other/Unknown,85,0,0
+2018–2020,MELB_URBAN,Other-vehicle,Not at intersection,10085,117,11.601388200297471
+2018–2020,MELB_URBAN,Other-vehicle,Cross intersection,5264,41,7.788753799392097
+2018–2020,MELB_URBAN,Other-vehicle,T intersection,5123,49,9.564708178801483
+2018–2020,MELB_URBAN,Other-vehicle,Other/Unknown,584,5,8.561643835616438
+2018–2020,RURAL_VICTORIA,Heavy-vehicle involved,Not at intersection,171,10,58.47953216374269
+2018–2020,RURAL_VICTORIA,Heavy-vehicle involved,Cross intersection,23,0,0
+2018–2020,RURAL_VICTORIA,Heavy-vehicle involved,T intersection,40,1,25
+2018–2020,RURAL_VICTORIA,Heavy-vehicle involved,Other/Unknown,4,0,0
+2018–2020,RURAL_VICTORIA,Other-vehicle,Not at intersection,6292,289,45.93134138588684
+2018–2020,RURAL_VICTORIA,Other-vehicle,Cross intersection,921,34,36.91639522258415
+2018–2020,RURAL_VICTORIA,Other-vehicle,T intersection,1101,22,19.981834695731152
+2018–2020,RURAL_VICTORIA,Other-vehicle,Other/Unknown,151,4,26.490066225165563
+2018–2020,SMALL_CITIES,Heavy-vehicle involved,Not at intersection,87,1,11.494252873563218
+2018–2020,SMALL_CITIES,Heavy-vehicle involved,Cross intersection,88,2,22.727272727272727
+2018–2020,SMALL_CITIES,Heavy-vehicle involved,T intersection,62,1,16.129032258064516
+2018–2020,SMALL_CITIES,Heavy-vehicle involved,Other/Unknown,9,0,0
+2018–2020,SMALL_CITIES,Other-vehicle,Not at intersection,814,19,23.34152334152334
+2018–2020,SMALL_CITIES,Other-vehicle,Cross intersection,544,2,3.676470588235294
+2018–2020,SMALL_CITIES,Other-vehicle,T intersection,434,6,13.824884792626728
+2018–2020,SMALL_CITIES,Other-vehicle,Other/Unknown,43,0,0
+2018–2020,TOWNS,Heavy-vehicle involved,Not at intersection,60,2,33.333333333333336
+2018–2020,TOWNS,Heavy-vehicle involved,Cross intersection,36,1,27.77777777777778
+2018–2020,TOWNS,Heavy-vehicle involved,T intersection,27,0,0
+2018–2020,TOWNS,Heavy-vehicle involved,Other/Unknown,2,0,0
+2018–2020,TOWNS,Other-vehicle,Not at intersection,526,14,26.61596958174905
+2018–2020,TOWNS,Other-vehicle,Cross intersection,352,5,14.204545454545455
+2018–2020,TOWNS,Other-vehicle,T intersection,198,5,25.252525252525253
+2018–2020,TOWNS,Other-vehicle,Other/Unknown,25,0,0
+2021–2023,MELB_URBAN,Heavy-vehicle involved,Not at intersection,1776,14,7.882882882882883
+2021–2023,MELB_URBAN,Heavy-vehicle involved,Cross intersection,1074,9,8.379888268156424
+2021–2023,MELB_URBAN,Heavy-vehicle involved,T intersection,1039,4,3.8498556304138596
+2021–2023,MELB_URBAN,Heavy-vehicle involved,Other/Unknown,84,0,0
+2021–2023,MELB_URBAN,Other-vehicle,Not at intersection,11648,124,10.645604395604396
+2021–2023,MELB_URBAN,Other-vehicle,Cross intersection,5547,50,9.013881377321075
+2021–2023,MELB_URBAN,Other-vehicle,T intersection,5555,58,10.441044104410441
+2021–2023,MELB_URBAN,Other-vehicle,Other/Unknown,653,5,7.656967840735069
+2021–2023,RURAL_VICTORIA,Heavy-vehicle involved,Not at intersection,201,10,49.75124378109453
+2021–2023,RURAL_VICTORIA,Heavy-vehicle involved,Cross intersection,38,2,52.63157894736842
+2021–2023,RURAL_VICTORIA,Heavy-vehicle involved,T intersection,45,4,88.88888888888889
+2021–2023,RURAL_VICTORIA,Heavy-vehicle involved,Other/Unknown,8,0,0
+2021–2023,RURAL_VICTORIA,Other-vehicle,Not at intersection,6929,314,45.316784528792034
+2021–2023,RURAL_VICTORIA,Other-vehicle,Cross intersection,1089,56,51.423324150596876
+2021–2023,RURAL_VICTORIA,Other-vehicle,T intersection,1244,37,29.742765273311896
+2021–2023,RURAL_VICTORIA,Other-vehicle,Other/Unknown,222,5,22.52252252252252
+2021–2023,SMALL_CITIES,Heavy-vehicle involved,Not at intersection,110,0,0
+2021–2023,SMALL_CITIES,Heavy-vehicle involved,Cross intersection,107,0,0
+2021–2023,SMALL_CITIES,Heavy-vehicle involved,T intersection,54,0,0
+2021–2023,SMALL_CITIES,Heavy-vehicle involved,Other/Unknown,7,0,0
+2021–2023,SMALL_CITIES,Other-vehicle,Not at intersection,893,21,23.516237402015676
+2021–2023,SMALL_CITIES,Other-vehicle,Cross intersection,641,3,4.6801872074882995
+2021–2023,SMALL_CITIES,Other-vehicle,T intersection,444,4,9.00900900900901
+2021–2023,SMALL_CITIES,Other-vehicle,Other/Unknown,44,0,0
+2021–2023,TOWNS,Heavy-vehicle involved,Not at intersection,71,1,14.084507042253522
+2021–2023,TOWNS,Heavy-vehicle involved,Cross intersection,43,1,23.25581395348837
+2021–2023,TOWNS,Heavy-vehicle involved,T intersection,30,0,0
+2021–2023,TOWNS,Heavy-vehicle involved,Other/Unknown,4,0,0
+2021–2023,TOWNS,Other-vehicle,Not at intersection,608,6,9.868421052631579
+2021–2023,TOWNS,Other-vehicle,Cross intersection,353,6,16.997167138810198
+2021–2023,TOWNS,Other-vehicle,T intersection,240,9,37.5
+2021–2023,TOWNS,Other-vehicle,Other/Unknown,34,0,0
+2024–2025,MELB_URBAN,Heavy-vehicle involved,Not at intersection,473,8,16.913319238900634
+2024–2025,MELB_URBAN,Heavy-vehicle involved,Cross intersection,304,2,6.578947368421052
+2024–2025,MELB_URBAN,Heavy-vehicle involved,T intersection,302,2,6.622516556291391
+2024–2025,MELB_URBAN,Heavy-vehicle involved,Other/Unknown,18,0,0
+2024–2025,MELB_URBAN,Other-vehicle,Not at intersection,2678,37,13.816280806572069
+2024–2025,MELB_URBAN,Other-vehicle,Cross intersection,1529,13,8.502289077828646
+2024–2025,MELB_URBAN,Other-vehicle,T intersection,1472,21,14.266304347826088
+2024–2025,MELB_URBAN,Other-vehicle,Other/Unknown,81,0,0
+2024–2025,RURAL_VICTORIA,Heavy-vehicle involved,Not at intersection,53,4,75.47169811320755
+2024–2025,RURAL_VICTORIA,Heavy-vehicle involved,Cross intersection,10,0,0
+2024–2025,RURAL_VICTORIA,Heavy-vehicle involved,T intersection,16,0,0
+2024–2025,RURAL_VICTORIA,Other-vehicle,Not at intersection,1680,87,51.785714285714285
+2024–2025,RURAL_VICTORIA,Other-vehicle,Cross intersection,290,9,31.03448275862069
+2024–2025,RURAL_VICTORIA,Other-vehicle,T intersection,364,5,13.736263736263735
+2024–2025,RURAL_VICTORIA,Other-vehicle,Other/Unknown,27,0,0
+2024–2025,SMALL_CITIES,Heavy-vehicle involved,Not at intersection,29,1,34.48275862068966
+2024–2025,SMALL_CITIES,Heavy-vehicle involved,Cross intersection,25,0,0
+2024–2025,SMALL_CITIES,Heavy-vehicle involved,T intersection,17,0,0
+2024–2025,SMALL_CITIES,Other-vehicle,Not at intersection,195,6,30.76923076923077
+2024–2025,SMALL_CITIES,Other-vehicle,Cross intersection,157,2,12.738853503184714
+2024–2025,SMALL_CITIES,Other-vehicle,T intersection,127,1,7.874015748031496
+2024–2025,SMALL_CITIES,Other-vehicle,Other/Unknown,6,1,166.66666666666666
+2024–2025,TOWNS,Heavy-vehicle involved,Not at intersection,14,0,0
+2024–2025,TOWNS,Heavy-vehicle involved,Cross intersection,13,0,0
+2024–2025,TOWNS,Heavy-vehicle involved,T intersection,11,1,90.9090909090909
+2024–2025,TOWNS,Other-vehicle,Not at intersection,133,4,30.075187969924812
+2024–2025,TOWNS,Other-vehicle,Cross intersection,93,1,10.75268817204301
+2024–2025,TOWNS,Other-vehicle,T intersection,43,2,46.51162790697674
+2024–2025,TOWNS,Other-vehicle,Other/Unknown,5,0,0

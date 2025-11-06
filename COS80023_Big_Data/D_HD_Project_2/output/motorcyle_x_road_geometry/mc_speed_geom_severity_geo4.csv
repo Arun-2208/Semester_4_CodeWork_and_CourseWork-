@@ -1,0 +1,309 @@
+period,geo4,mc_group,speed_bucket,geom_group,crashes,fatalities,fatal_per_1000
+2012–2014,MELB_URBAN,Motorcycle-involved,<=60,Not at intersection,67,1,14.925373134328359
+2012–2014,MELB_URBAN,Motorcycle-involved,<=60,Cross intersection,70,1,14.285714285714286
+2012–2014,MELB_URBAN,Motorcycle-involved,<=60,T intersection,74,2,27.027027027027028
+2012–2014,MELB_URBAN,Motorcycle-involved,70–80,Not at intersection,33,1,30.303030303030305
+2012–2014,MELB_URBAN,Motorcycle-involved,70–80,Cross intersection,19,0,0
+2012–2014,MELB_URBAN,Motorcycle-involved,70–80,T intersection,20,0,0
+2012–2014,MELB_URBAN,Motorcycle-involved,>=90,Not at intersection,8,0,0
+2012–2014,MELB_URBAN,Motorcycle-involved,>=90,T intersection,1,0,0
+2012–2014,MELB_URBAN,Non-motorcycle,<=60,Not at intersection,6438,70,10.872941907424666
+2012–2014,MELB_URBAN,Non-motorcycle,<=60,Cross intersection,4925,27,5.482233502538071
+2012–2014,MELB_URBAN,Non-motorcycle,<=60,T intersection,5939,47,7.913790200370433
+2012–2014,MELB_URBAN,Non-motorcycle,70–80,Not at intersection,2584,52,20.123839009287927
+2012–2014,MELB_URBAN,Non-motorcycle,70–80,Cross intersection,1769,20,11.305822498586773
+2012–2014,MELB_URBAN,Non-motorcycle,70–80,T intersection,1833,27,14.729950900163667
+2012–2014,MELB_URBAN,Non-motorcycle,>=90,Not at intersection,1189,22,18.502943650126156
+2012–2014,MELB_URBAN,Non-motorcycle,>=90,Cross intersection,49,0,0
+2012–2014,MELB_URBAN,Non-motorcycle,>=90,T intersection,59,0,0
+2012–2014,RURAL_VICTORIA,Motorcycle-involved,<=60,Not at intersection,3,0,0
+2012–2014,RURAL_VICTORIA,Motorcycle-involved,<=60,T intersection,3,0,0
+2012–2014,RURAL_VICTORIA,Motorcycle-involved,70–80,Not at intersection,5,2,400
+2012–2014,RURAL_VICTORIA,Motorcycle-involved,70–80,Cross intersection,6,0,0
+2012–2014,RURAL_VICTORIA,Motorcycle-involved,70–80,T intersection,3,0,0
+2012–2014,RURAL_VICTORIA,Motorcycle-involved,>=90,Not at intersection,16,0,0
+2012–2014,RURAL_VICTORIA,Motorcycle-involved,>=90,Cross intersection,6,0,0
+2012–2014,RURAL_VICTORIA,Motorcycle-involved,>=90,T intersection,8,1,125
+2012–2014,RURAL_VICTORIA,Non-motorcycle,<=60,Not at intersection,487,5,10.26694045174538
+2012–2014,RURAL_VICTORIA,Non-motorcycle,<=60,Cross intersection,101,0,0
+2012–2014,RURAL_VICTORIA,Non-motorcycle,<=60,T intersection,158,1,6.329113924050633
+2012–2014,RURAL_VICTORIA,Non-motorcycle,70–80,Not at intersection,1166,37,31.732418524871356
+2012–2014,RURAL_VICTORIA,Non-motorcycle,70–80,Cross intersection,245,4,16.3265306122449
+2012–2014,RURAL_VICTORIA,Non-motorcycle,70–80,T intersection,358,5,13.966480446927374
+2012–2014,RURAL_VICTORIA,Non-motorcycle,>=90,Not at intersection,4276,287,67.11880261927034
+2012–2014,RURAL_VICTORIA,Non-motorcycle,>=90,Cross intersection,472,36,76.27118644067797
+2012–2014,RURAL_VICTORIA,Non-motorcycle,>=90,T intersection,631,30,47.543581616481774
+2012–2014,SMALL_CITIES,Motorcycle-involved,<=60,Not at intersection,6,0,0
+2012–2014,SMALL_CITIES,Motorcycle-involved,<=60,Cross intersection,6,0,0
+2012–2014,SMALL_CITIES,Motorcycle-involved,<=60,T intersection,6,0,0
+2012–2014,SMALL_CITIES,Motorcycle-involved,70–80,T intersection,1,0,0
+2012–2014,SMALL_CITIES,Non-motorcycle,<=60,Not at intersection,599,5,8.347245409015025
+2012–2014,SMALL_CITIES,Non-motorcycle,<=60,Cross intersection,586,3,5.1194539249146755
+2012–2014,SMALL_CITIES,Non-motorcycle,<=60,T intersection,443,2,4.514672686230249
+2012–2014,SMALL_CITIES,Non-motorcycle,70–80,Not at intersection,111,4,36.03603603603604
+2012–2014,SMALL_CITIES,Non-motorcycle,70–80,Cross intersection,96,0,0
+2012–2014,SMALL_CITIES,Non-motorcycle,70–80,T intersection,102,1,9.803921568627452
+2012–2014,SMALL_CITIES,Non-motorcycle,>=90,Not at intersection,52,7,134.6153846153846
+2012–2014,SMALL_CITIES,Non-motorcycle,>=90,Cross intersection,6,0,0
+2012–2014,SMALL_CITIES,Non-motorcycle,>=90,T intersection,6,0,0
+2012–2014,TOWNS,Motorcycle-involved,<=60,Not at intersection,4,0,0
+2012–2014,TOWNS,Motorcycle-involved,<=60,Cross intersection,4,0,0
+2012–2014,TOWNS,Motorcycle-involved,<=60,T intersection,1,0,0
+2012–2014,TOWNS,Motorcycle-involved,70–80,T intersection,1,0,0
+2012–2014,TOWNS,Non-motorcycle,<=60,Not at intersection,442,11,24.8868778280543
+2012–2014,TOWNS,Non-motorcycle,<=60,Cross intersection,335,4,11.940298507462687
+2012–2014,TOWNS,Non-motorcycle,<=60,T intersection,227,3,13.215859030837004
+2012–2014,TOWNS,Non-motorcycle,70–80,Not at intersection,63,6,95.23809523809524
+2012–2014,TOWNS,Non-motorcycle,70–80,Cross intersection,22,0,0
+2012–2014,TOWNS,Non-motorcycle,70–80,T intersection,54,1,18.51851851851852
+2012–2014,TOWNS,Non-motorcycle,>=90,Not at intersection,56,4,71.42857142857143
+2012–2014,TOWNS,Non-motorcycle,>=90,Cross intersection,8,0,0
+2012–2014,TOWNS,Non-motorcycle,>=90,T intersection,26,2,76.92307692307692
+2015–2017,MELB_URBAN,Motorcycle-involved,<=60,Not at intersection,85,5,58.8235294117647
+2015–2017,MELB_URBAN,Motorcycle-involved,<=60,Cross intersection,64,4,62.5
+2015–2017,MELB_URBAN,Motorcycle-involved,<=60,T intersection,52,0,0
+2015–2017,MELB_URBAN,Motorcycle-involved,70–80,Not at intersection,42,0,0
+2015–2017,MELB_URBAN,Motorcycle-involved,70–80,Cross intersection,14,0,0
+2015–2017,MELB_URBAN,Motorcycle-involved,70–80,T intersection,15,0,0
+2015–2017,MELB_URBAN,Motorcycle-involved,>=90,Not at intersection,8,0,0
+2015–2017,MELB_URBAN,Motorcycle-involved,>=90,T intersection,1,0,0
+2015–2017,MELB_URBAN,Non-motorcycle,<=60,Not at intersection,7579,93,12.270748119804724
+2015–2017,MELB_URBAN,Non-motorcycle,<=60,Cross intersection,4723,26,5.504975651069236
+2015–2017,MELB_URBAN,Non-motorcycle,<=60,T intersection,5326,41,7.698084866691701
+2015–2017,MELB_URBAN,Non-motorcycle,70–80,Not at intersection,2864,44,15.363128491620111
+2015–2017,MELB_URBAN,Non-motorcycle,70–80,Cross intersection,1609,20,12.430080795525171
+2015–2017,MELB_URBAN,Non-motorcycle,70–80,T intersection,1681,21,12.492563950029744
+2015–2017,MELB_URBAN,Non-motorcycle,>=90,Not at intersection,1486,19,12.78600269179004
+2015–2017,MELB_URBAN,Non-motorcycle,>=90,Cross intersection,24,1,41.666666666666664
+2015–2017,MELB_URBAN,Non-motorcycle,>=90,T intersection,30,2,66.66666666666667
+2015–2017,RURAL_VICTORIA,Motorcycle-involved,<=60,Not at intersection,4,0,0
+2015–2017,RURAL_VICTORIA,Motorcycle-involved,<=60,Cross intersection,1,0,0
+2015–2017,RURAL_VICTORIA,Motorcycle-involved,70–80,Not at intersection,8,0,0
+2015–2017,RURAL_VICTORIA,Motorcycle-involved,70–80,Cross intersection,1,0,0
+2015–2017,RURAL_VICTORIA,Motorcycle-involved,70–80,T intersection,5,0,0
+2015–2017,RURAL_VICTORIA,Motorcycle-involved,>=90,Not at intersection,21,5,238.0952380952381
+2015–2017,RURAL_VICTORIA,Motorcycle-involved,>=90,Cross intersection,2,3,1500
+2015–2017,RURAL_VICTORIA,Motorcycle-involved,>=90,T intersection,7,0,0
+2015–2017,RURAL_VICTORIA,Non-motorcycle,<=60,Not at intersection,686,11,16.034985422740526
+2015–2017,RURAL_VICTORIA,Non-motorcycle,<=60,Cross intersection,128,2,15.625
+2015–2017,RURAL_VICTORIA,Non-motorcycle,<=60,T intersection,182,1,5.4945054945054945
+2015–2017,RURAL_VICTORIA,Non-motorcycle,70–80,Not at intersection,1468,48,32.69754768392371
+2015–2017,RURAL_VICTORIA,Non-motorcycle,70–80,Cross intersection,247,6,24.291497975708502
+2015–2017,RURAL_VICTORIA,Non-motorcycle,70–80,T intersection,406,5,12.31527093596059
+2015–2017,RURAL_VICTORIA,Non-motorcycle,>=90,Not at intersection,4559,289,63.39109453827594
+2015–2017,RURAL_VICTORIA,Non-motorcycle,>=90,Cross intersection,452,37,81.85840707964601
+2015–2017,RURAL_VICTORIA,Non-motorcycle,>=90,T intersection,577,30,51.99306759098787
+2015–2017,SMALL_CITIES,Motorcycle-involved,<=60,Not at intersection,5,0,0
+2015–2017,SMALL_CITIES,Motorcycle-involved,<=60,Cross intersection,10,0,0
+2015–2017,SMALL_CITIES,Motorcycle-involved,<=60,T intersection,4,0,0
+2015–2017,SMALL_CITIES,Non-motorcycle,<=60,Not at intersection,800,12,15
+2015–2017,SMALL_CITIES,Non-motorcycle,<=60,Cross intersection,630,6,9.523809523809524
+2015–2017,SMALL_CITIES,Non-motorcycle,<=60,T intersection,443,2,4.514672686230249
+2015–2017,SMALL_CITIES,Non-motorcycle,70–80,Not at intersection,88,2,22.727272727272727
+2015–2017,SMALL_CITIES,Non-motorcycle,70–80,Cross intersection,72,4,55.55555555555556
+2015–2017,SMALL_CITIES,Non-motorcycle,70–80,T intersection,73,0,0
+2015–2017,SMALL_CITIES,Non-motorcycle,>=90,Not at intersection,57,1,17.54385964912281
+2015–2017,SMALL_CITIES,Non-motorcycle,>=90,Cross intersection,1,0,0
+2015–2017,SMALL_CITIES,Non-motorcycle,>=90,T intersection,3,0,0
+2015–2017,TOWNS,Motorcycle-involved,<=60,Not at intersection,4,0,0
+2015–2017,TOWNS,Motorcycle-involved,<=60,Cross intersection,1,0,0
+2015–2017,TOWNS,Motorcycle-involved,<=60,T intersection,2,0,0
+2015–2017,TOWNS,Motorcycle-involved,70–80,Not at intersection,1,0,0
+2015–2017,TOWNS,Motorcycle-involved,70–80,T intersection,1,1,1000
+2015–2017,TOWNS,Motorcycle-involved,>=90,Not at intersection,1,0,0
+2015–2017,TOWNS,Non-motorcycle,<=60,Not at intersection,485,6,12.371134020618557
+2015–2017,TOWNS,Non-motorcycle,<=60,Cross intersection,383,0,0
+2015–2017,TOWNS,Non-motorcycle,<=60,T intersection,225,0,0
+2015–2017,TOWNS,Non-motorcycle,70–80,Not at intersection,83,5,60.24096385542169
+2015–2017,TOWNS,Non-motorcycle,70–80,Cross intersection,19,0,0
+2015–2017,TOWNS,Non-motorcycle,70–80,T intersection,50,0,0
+2015–2017,TOWNS,Non-motorcycle,>=90,Not at intersection,54,4,74.07407407407408
+2015–2017,TOWNS,Non-motorcycle,>=90,Cross intersection,12,2,166.66666666666666
+2015–2017,TOWNS,Non-motorcycle,>=90,T intersection,11,0,0
+2018–2020,MELB_URBAN,Motorcycle-involved,<=60,Not at intersection,75,2,26.666666666666668
+2018–2020,MELB_URBAN,Motorcycle-involved,<=60,Cross intersection,58,0,0
+2018–2020,MELB_URBAN,Motorcycle-involved,<=60,T intersection,40,0,0
+2018–2020,MELB_URBAN,Motorcycle-involved,70–80,Not at intersection,33,1,30.303030303030305
+2018–2020,MELB_URBAN,Motorcycle-involved,70–80,Cross intersection,15,0,0
+2018–2020,MELB_URBAN,Motorcycle-involved,70–80,T intersection,13,2,153.84615384615384
+2018–2020,MELB_URBAN,Motorcycle-involved,>=90,Not at intersection,10,0,0
+2018–2020,MELB_URBAN,Motorcycle-involved,>=90,Cross intersection,1,0,0
+2018–2020,MELB_URBAN,Non-motorcycle,<=60,Not at intersection,6852,64,9.340338587273788
+2018–2020,MELB_URBAN,Non-motorcycle,<=60,Cross intersection,4218,22,5.215742057847321
+2018–2020,MELB_URBAN,Non-motorcycle,<=60,T intersection,4397,39,8.86968387536957
+2018–2020,MELB_URBAN,Non-motorcycle,70–80,Not at intersection,2661,45,16.910935738444195
+2018–2020,MELB_URBAN,Non-motorcycle,70–80,Cross intersection,1436,22,15.32033426183844
+2018–2020,MELB_URBAN,Non-motorcycle,70–80,T intersection,1264,13,10.284810126582279
+2018–2020,MELB_URBAN,Non-motorcycle,>=90,Not at intersection,1069,13,12.160898035547241
+2018–2020,MELB_URBAN,Non-motorcycle,>=90,Cross intersection,27,0,0
+2018–2020,MELB_URBAN,Non-motorcycle,>=90,T intersection,14,0,0
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,<=60,Not at intersection,7,0,0
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,<=60,Cross intersection,2,0,0
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,<=60,T intersection,1,0,0
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,70–80,Not at intersection,15,0,0
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,70–80,Cross intersection,3,0,0
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,70–80,T intersection,2,0,0
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,>=90,Not at intersection,23,4,173.91304347826087
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,>=90,Cross intersection,2,0,0
+2018–2020,RURAL_VICTORIA,Motorcycle-involved,>=90,T intersection,3,0,0
+2018–2020,RURAL_VICTORIA,Non-motorcycle,<=60,Not at intersection,754,16,21.220159151193634
+2018–2020,RURAL_VICTORIA,Non-motorcycle,<=60,Cross intersection,209,2,9.569377990430622
+2018–2020,RURAL_VICTORIA,Non-motorcycle,<=60,T intersection,226,1,4.424778761061947
+2018–2020,RURAL_VICTORIA,Non-motorcycle,70–80,Not at intersection,1358,37,27.245949926362297
+2018–2020,RURAL_VICTORIA,Non-motorcycle,70–80,Cross intersection,311,13,41.80064308681672
+2018–2020,RURAL_VICTORIA,Non-motorcycle,70–80,T intersection,385,6,15.584415584415584
+2018–2020,RURAL_VICTORIA,Non-motorcycle,>=90,Not at intersection,3700,235,63.513513513513516
+2018–2020,RURAL_VICTORIA,Non-motorcycle,>=90,Cross intersection,377,19,50.39787798408488
+2018–2020,RURAL_VICTORIA,Non-motorcycle,>=90,T intersection,438,16,36.529680365296805
+2018–2020,SMALL_CITIES,Motorcycle-involved,<=60,Not at intersection,3,0,0
+2018–2020,SMALL_CITIES,Motorcycle-involved,<=60,Cross intersection,7,0,0
+2018–2020,SMALL_CITIES,Motorcycle-involved,<=60,T intersection,2,0,0
+2018–2020,SMALL_CITIES,Motorcycle-involved,70–80,Not at intersection,1,0,0
+2018–2020,SMALL_CITIES,Motorcycle-involved,70–80,Cross intersection,1,0,0
+2018–2020,SMALL_CITIES,Non-motorcycle,<=60,Not at intersection,707,14,19.801980198019802
+2018–2020,SMALL_CITIES,Non-motorcycle,<=60,Cross intersection,556,4,7.1942446043165464
+2018–2020,SMALL_CITIES,Non-motorcycle,<=60,T intersection,392,6,15.306122448979592
+2018–2020,SMALL_CITIES,Non-motorcycle,70–80,Not at intersection,95,5,52.63157894736842
+2018–2020,SMALL_CITIES,Non-motorcycle,70–80,Cross intersection,55,0,0
+2018–2020,SMALL_CITIES,Non-motorcycle,70–80,T intersection,77,0,0
+2018–2020,SMALL_CITIES,Non-motorcycle,>=90,Not at intersection,43,1,23.25581395348837
+2018–2020,SMALL_CITIES,Non-motorcycle,>=90,Cross intersection,3,0,0
+2018–2020,SMALL_CITIES,Non-motorcycle,>=90,T intersection,5,1,200
+2018–2020,TOWNS,Motorcycle-involved,<=60,Not at intersection,3,0,0
+2018–2020,TOWNS,Motorcycle-involved,<=60,Cross intersection,3,0,0
+2018–2020,TOWNS,Motorcycle-involved,<=60,T intersection,1,1,1000
+2018–2020,TOWNS,Motorcycle-involved,70–80,Not at intersection,2,0,0
+2018–2020,TOWNS,Motorcycle-involved,70–80,Cross intersection,2,0,0
+2018–2020,TOWNS,Motorcycle-involved,70–80,T intersection,1,0,0
+2018–2020,TOWNS,Non-motorcycle,<=60,Not at intersection,450,13,28.88888888888889
+2018–2020,TOWNS,Non-motorcycle,<=60,Cross intersection,336,5,14.880952380952381
+2018–2020,TOWNS,Non-motorcycle,<=60,T intersection,174,3,17.24137931034483
+2018–2020,TOWNS,Non-motorcycle,70–80,Not at intersection,67,2,29.850746268656717
+2018–2020,TOWNS,Non-motorcycle,70–80,Cross intersection,36,1,27.77777777777778
+2018–2020,TOWNS,Non-motorcycle,70–80,T intersection,33,0,0
+2018–2020,TOWNS,Non-motorcycle,>=90,Not at intersection,37,0,0
+2018–2020,TOWNS,Non-motorcycle,>=90,Cross intersection,4,0,0
+2018–2020,TOWNS,Non-motorcycle,>=90,T intersection,10,1,100
+2021–2023,MELB_URBAN,Motorcycle-involved,<=60,Not at intersection,85,1,11.764705882352942
+2021–2023,MELB_URBAN,Motorcycle-involved,<=60,Cross intersection,66,2,30.303030303030305
+2021–2023,MELB_URBAN,Motorcycle-involved,<=60,T intersection,46,1,21.73913043478261
+2021–2023,MELB_URBAN,Motorcycle-involved,70–80,Not at intersection,43,1,23.25581395348837
+2021–2023,MELB_URBAN,Motorcycle-involved,70–80,Cross intersection,13,0,0
+2021–2023,MELB_URBAN,Motorcycle-involved,70–80,T intersection,21,0,0
+2021–2023,MELB_URBAN,Motorcycle-involved,>=90,Not at intersection,16,0,0
+2021–2023,MELB_URBAN,Motorcycle-involved,>=90,T intersection,1,0,0
+2021–2023,MELB_URBAN,Non-motorcycle,<=60,Not at intersection,7681,71,9.24358807446947
+2021–2023,MELB_URBAN,Non-motorcycle,<=60,Cross intersection,4401,36,8.1799591002045
+2021–2023,MELB_URBAN,Non-motorcycle,<=60,T intersection,4563,41,8.98531667762437
+2021–2023,MELB_URBAN,Non-motorcycle,70–80,Not at intersection,3177,51,16.052880075542966
+2021–2023,MELB_URBAN,Non-motorcycle,70–80,Cross intersection,1595,20,12.539184952978056
+2021–2023,MELB_URBAN,Non-motorcycle,70–80,T intersection,1462,20,13.679890560875513
+2021–2023,MELB_URBAN,Non-motorcycle,>=90,Not at intersection,1227,12,9.7799511002445
+2021–2023,MELB_URBAN,Non-motorcycle,>=90,Cross intersection,28,0,0
+2021–2023,MELB_URBAN,Non-motorcycle,>=90,T intersection,32,0,0
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,<=60,Not at intersection,6,0,0
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,<=60,Cross intersection,1,0,0
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,<=60,T intersection,2,0,0
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,70–80,Not at intersection,10,2,200
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,70–80,Cross intersection,3,0,0
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,70–80,T intersection,3,0,0
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,>=90,Not at intersection,19,3,157.89473684210526
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,>=90,Cross intersection,2,0,0
+2021–2023,RURAL_VICTORIA,Motorcycle-involved,>=90,T intersection,1,0,0
+2021–2023,RURAL_VICTORIA,Non-motorcycle,<=60,Not at intersection,1029,24,23.323615160349853
+2021–2023,RURAL_VICTORIA,Non-motorcycle,<=60,Cross intersection,294,6,20.408163265306122
+2021–2023,RURAL_VICTORIA,Non-motorcycle,<=60,T intersection,328,9,27.4390243902439
+2021–2023,RURAL_VICTORIA,Non-motorcycle,70–80,Not at intersection,1552,47,30.283505154639176
+2021–2023,RURAL_VICTORIA,Non-motorcycle,70–80,Cross intersection,360,11,30.555555555555557
+2021–2023,RURAL_VICTORIA,Non-motorcycle,70–80,T intersection,445,8,17.97752808988764
+2021–2023,RURAL_VICTORIA,Non-motorcycle,>=90,Not at intersection,3772,240,63.62672322375398
+2021–2023,RURAL_VICTORIA,Non-motorcycle,>=90,Cross intersection,389,40,102.82776349614396
+2021–2023,RURAL_VICTORIA,Non-motorcycle,>=90,T intersection,393,24,61.06870229007634
+2021–2023,SMALL_CITIES,Motorcycle-involved,<=60,Not at intersection,8,0,0
+2021–2023,SMALL_CITIES,Motorcycle-involved,<=60,Cross intersection,4,0,0
+2021–2023,SMALL_CITIES,Motorcycle-involved,<=60,T intersection,6,0,0
+2021–2023,SMALL_CITIES,Motorcycle-involved,70–80,Cross intersection,1,0,0
+2021–2023,SMALL_CITIES,Motorcycle-involved,70–80,T intersection,1,0,0
+2021–2023,SMALL_CITIES,Motorcycle-involved,>=90,Not at intersection,1,0,0
+2021–2023,SMALL_CITIES,Non-motorcycle,<=60,Not at intersection,795,11,13.836477987421384
+2021–2023,SMALL_CITIES,Non-motorcycle,<=60,Cross intersection,623,1,1.6051364365971108
+2021–2023,SMALL_CITIES,Non-motorcycle,<=60,T intersection,385,2,5.194805194805195
+2021–2023,SMALL_CITIES,Non-motorcycle,70–80,Not at intersection,95,8,84.21052631578948
+2021–2023,SMALL_CITIES,Non-motorcycle,70–80,Cross intersection,86,2,23.25581395348837
+2021–2023,SMALL_CITIES,Non-motorcycle,70–80,T intersection,82,2,24.390243902439025
+2021–2023,SMALL_CITIES,Non-motorcycle,>=90,Not at intersection,54,2,37.03703703703704
+2021–2023,SMALL_CITIES,Non-motorcycle,>=90,Cross intersection,8,0,0
+2021–2023,SMALL_CITIES,Non-motorcycle,>=90,T intersection,3,0,0
+2021–2023,TOWNS,Motorcycle-involved,<=60,Not at intersection,5,0,0
+2021–2023,TOWNS,Motorcycle-involved,<=60,Cross intersection,5,0,0
+2021–2023,TOWNS,Motorcycle-involved,<=60,T intersection,1,0,0
+2021–2023,TOWNS,Motorcycle-involved,70–80,T intersection,1,0,0
+2021–2023,TOWNS,Non-motorcycle,<=60,Not at intersection,523,2,3.8240917782026767
+2021–2023,TOWNS,Non-motorcycle,<=60,Cross intersection,356,3,8.426966292134832
+2021–2023,TOWNS,Non-motorcycle,<=60,T intersection,205,8,39.02439024390244
+2021–2023,TOWNS,Non-motorcycle,70–80,Not at intersection,81,4,49.382716049382715
+2021–2023,TOWNS,Non-motorcycle,70–80,Cross intersection,26,4,153.84615384615384
+2021–2023,TOWNS,Non-motorcycle,70–80,T intersection,44,0,0
+2021–2023,TOWNS,Non-motorcycle,>=90,Not at intersection,31,0,0
+2021–2023,TOWNS,Non-motorcycle,>=90,Cross intersection,1,0,0
+2021–2023,TOWNS,Non-motorcycle,>=90,T intersection,6,1,166.66666666666666
+2024–2025,MELB_URBAN,Motorcycle-involved,<=60,Not at intersection,15,0,0
+2024–2025,MELB_URBAN,Motorcycle-involved,<=60,Cross intersection,19,0,0
+2024–2025,MELB_URBAN,Motorcycle-involved,<=60,T intersection,20,0,0
+2024–2025,MELB_URBAN,Motorcycle-involved,70–80,Not at intersection,11,0,0
+2024–2025,MELB_URBAN,Motorcycle-involved,70–80,Cross intersection,6,0,0
+2024–2025,MELB_URBAN,Motorcycle-involved,70–80,T intersection,7,0,0
+2024–2025,MELB_URBAN,Motorcycle-involved,>=90,Not at intersection,7,0,0
+2024–2025,MELB_URBAN,Motorcycle-involved,>=90,Cross intersection,1,0,0
+2024–2025,MELB_URBAN,Non-motorcycle,<=60,Not at intersection,1731,25,14.442518775274408
+2024–2025,MELB_URBAN,Non-motorcycle,<=60,Cross intersection,1204,14,11.627906976744185
+2024–2025,MELB_URBAN,Non-motorcycle,<=60,T intersection,1211,16,13.212221304706853
+2024–2025,MELB_URBAN,Non-motorcycle,70–80,Not at intersection,707,17,24.045261669024047
+2024–2025,MELB_URBAN,Non-motorcycle,70–80,Cross intersection,446,1,2.242152466367713
+2024–2025,MELB_URBAN,Non-motorcycle,70–80,T intersection,356,7,19.662921348314608
+2024–2025,MELB_URBAN,Non-motorcycle,>=90,Not at intersection,352,1,2.840909090909091
+2024–2025,MELB_URBAN,Non-motorcycle,>=90,Cross intersection,19,0,0
+2024–2025,MELB_URBAN,Non-motorcycle,>=90,T intersection,9,0,0
+2024–2025,RURAL_VICTORIA,Motorcycle-involved,<=60,Not at intersection,2,0,0
+2024–2025,RURAL_VICTORIA,Motorcycle-involved,<=60,Cross intersection,1,0,0
+2024–2025,RURAL_VICTORIA,Motorcycle-involved,<=60,T intersection,1,0,0
+2024–2025,RURAL_VICTORIA,Motorcycle-involved,70–80,Not at intersection,4,0,0
+2024–2025,RURAL_VICTORIA,Motorcycle-involved,70–80,T intersection,2,0,0
+2024–2025,RURAL_VICTORIA,Motorcycle-involved,>=90,Not at intersection,9,0,0
+2024–2025,RURAL_VICTORIA,Motorcycle-involved,>=90,T intersection,1,0,0
+2024–2025,RURAL_VICTORIA,Non-motorcycle,<=60,Not at intersection,265,6,22.641509433962263
+2024–2025,RURAL_VICTORIA,Non-motorcycle,<=60,Cross intersection,93,1,10.75268817204301
+2024–2025,RURAL_VICTORIA,Non-motorcycle,<=60,T intersection,109,2,18.34862385321101
+2024–2025,RURAL_VICTORIA,Non-motorcycle,70–80,Not at intersection,401,12,29.925187032418954
+2024–2025,RURAL_VICTORIA,Non-motorcycle,70–80,Cross intersection,82,2,24.390243902439025
+2024–2025,RURAL_VICTORIA,Non-motorcycle,70–80,T intersection,122,1,8.19672131147541
+2024–2025,RURAL_VICTORIA,Non-motorcycle,>=90,Not at intersection,847,71,83.82526564344747
+2024–2025,RURAL_VICTORIA,Non-motorcycle,>=90,Cross intersection,95,6,63.1578947368421
+2024–2025,RURAL_VICTORIA,Non-motorcycle,>=90,T intersection,105,1,9.523809523809524
+2024–2025,SMALL_CITIES,Motorcycle-involved,<=60,Not at intersection,1,0,0
+2024–2025,SMALL_CITIES,Motorcycle-involved,<=60,Cross intersection,3,0,0
+2024–2025,SMALL_CITIES,Motorcycle-involved,<=60,T intersection,3,0,0
+2024–2025,SMALL_CITIES,Motorcycle-involved,70–80,Cross intersection,1,0,0
+2024–2025,SMALL_CITIES,Non-motorcycle,<=60,Not at intersection,164,3,18.29268292682927
+2024–2025,SMALL_CITIES,Non-motorcycle,<=60,Cross intersection,153,2,13.071895424836601
+2024–2025,SMALL_CITIES,Non-motorcycle,<=60,T intersection,112,1,8.928571428571429
+2024–2025,SMALL_CITIES,Non-motorcycle,70–80,Not at intersection,31,3,96.7741935483871
+2024–2025,SMALL_CITIES,Non-motorcycle,70–80,Cross intersection,18,0,0
+2024–2025,SMALL_CITIES,Non-motorcycle,70–80,T intersection,21,0,0
+2024–2025,SMALL_CITIES,Non-motorcycle,>=90,Not at intersection,8,0,0
+2024–2025,SMALL_CITIES,Non-motorcycle,>=90,Cross intersection,1,0,0
+2024–2025,SMALL_CITIES,Non-motorcycle,>=90,T intersection,1,0,0
+2024–2025,TOWNS,Motorcycle-involved,<=60,Not at intersection,1,0,0
+2024–2025,TOWNS,Motorcycle-involved,<=60,Cross intersection,3,0,0
+2024–2025,TOWNS,Motorcycle-involved,<=60,T intersection,3,0,0
+2024–2025,TOWNS,Motorcycle-involved,70–80,T intersection,1,0,0
+2024–2025,TOWNS,Motorcycle-involved,>=90,Not at intersection,1,0,0
+2024–2025,TOWNS,Non-motorcycle,<=60,Not at intersection,102,2,19.607843137254903
+2024–2025,TOWNS,Non-motorcycle,<=60,Cross intersection,91,1,10.989010989010989
+2024–2025,TOWNS,Non-motorcycle,<=60,T intersection,43,2,46.51162790697674
+2024–2025,TOWNS,Non-motorcycle,70–80,Not at intersection,21,0,0
+2024–2025,TOWNS,Non-motorcycle,70–80,Cross intersection,7,0,0
+2024–2025,TOWNS,Non-motorcycle,70–80,T intersection,5,0,0
+2024–2025,TOWNS,Non-motorcycle,>=90,Not at intersection,10,2,200
+2024–2025,TOWNS,Non-motorcycle,>=90,Cross intersection,1,0,0
+2024–2025,TOWNS,Non-motorcycle,>=90,T intersection,1,0,0
